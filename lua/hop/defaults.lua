@@ -11,6 +11,7 @@ M.create_hl_autocmd = true
 M.current_line_only = false
 M.uppercase_labels = false
 M.multi_windows = false
+M.match_mappings = { }
 M.hint_position = require'hop.hint'.HintPosition.BEGIN
 M.hint_offset = 0
 
