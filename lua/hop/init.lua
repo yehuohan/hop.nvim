@@ -42,7 +42,7 @@ end
 
 ---@param jump_target JumpTargetModule
 ---@param opts Options
----@return function
+---@return fun(regex:Regex):function
 local function getGenerator(jump_target, opts)
   if opts.current_line_only then
     return jump_target.jump_targets_for_current_line
@@ -311,6 +311,8 @@ function M.move_cursor_to(w, line, column, opts)
   vim.api.nvim_win_set_cursor(w, { line, column })
 end
 
+---@param jump_target_gtr fun(opts:Options):Locations
+---@param opts Options
 function M.hint_with(jump_target_gtr, opts)
   M.hint_with_callback(jump_target_gtr, opts, function(jt)
     M.move_cursor_to(jt.window, jt.line + 1, jt.column - 1, opts)
@@ -666,6 +668,12 @@ M.paste_char1 = function(opts)
 
     require('hop.yank').paste_from(target, opts.yank_register)
   end)
+end
+
+M.hint_nodes = function(opts)
+  opts = override_opts(opts)
+
+  M.hint_with(require('hop.treesitter').nodes(), opts)
 end
 
 return M
