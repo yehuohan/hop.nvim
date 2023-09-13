@@ -34,18 +34,6 @@ M.HintType = {
   INLINE = 'inline',
 }
 
----@param label table
----@return string
-local function tbl_to_str(label)
-  local s = ''
-
-  for i = 1, #label do
-    s = s .. label[i]
-  end
-
-  return s
-end
-
 -- Reduce a hint.
 -- This function will remove hints not starting with the input key and will reduce the other ones
 -- with one level.
@@ -113,7 +101,7 @@ function M.create_hints(jump_targets, indirect_jump_targets, opts)
 
   for i, indirect in pairs(indirect_jump_targets) do
     hints[indirect.index] = {
-      label = tbl_to_str(perms[i]),
+      label = table.concat(perms[i]),
       jump_target = jump_targets[indirect.index],
     }
   end
