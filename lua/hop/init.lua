@@ -18,7 +18,10 @@ local function check_opts(opts)
   if opts.multi_windows and opts.current_line_only then
     vim.notify('Cannot use current_line_only across multiple windows', vim.log.levels.WARN)
   end
-  if vim.api.nvim_get_mode().mode ~= 'n' then
+
+  -- disable multi windows for visual mode
+  local mode = vim.api.nvim_get_mode().mode
+  if mode ~= 'n' and mode ~= 'nt' then
     opts.multi_windows = false
   end
 end
