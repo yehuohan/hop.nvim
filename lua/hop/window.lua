@@ -2,7 +2,7 @@ local hint = require('hop.hint')
 
 ---@class WindowContext
 ---@field hwin number
----@field cursor_pos any[]
+---@field cursor_pos table
 ---@field top_line number
 ---@field bot_line number
 ---@field win_width number
@@ -21,25 +21,18 @@ local M = {}
 -- get information about the window and the cursor
 ---@param win_handle number
 ---@return WindowContext
-local function window_context(win_handle)
+local function window_context(win_handle, buf_handle)
   vim.api.nvim_set_current_win(win_handle)
   local win_info = vim.fn.getwininfo(win_handle)[1]
   local win_view = vim.fn.winsaveview()
   local cursor_pos = vim.api.nvim_win_get_cursor(win_handle)
 
-  -- NOTE: due to an (unknown yet) bug in neovim, the sign_width is not correctly reported when shifting the window
-  -- view inside a non-wrap window, so we can’t rely on this; for this reason, we have to implement a weird hack that
-  -- is going to disable the signs while hop is running (I’m sorry); the state is restored after jump
-  -- local left_col_offset = win_info.variables.context.number_width + win_info.variables.context.sign_width
   local win_width = nil
-
-  -- hack to get the left column offset in nowrap
   if not vim.wo.wrap then
-    vim.api.nvim_win_set_cursor(win_handle, { cursor_pos[1], 0 })
-    local left_col_offset = vim.fn.wincol() - 1
-    vim.fn.winrestview(win_view)
-    win_width = win_info.width - left_col_offset
+    win_width = win_info.width - win_info.textoff
   end
+  local cursor_line = vim.api.nvim_buf_get_lines(buf_handle, cursor_pos[1] - 1, cursor_pos[1], false)[1]
+  cursor_pos.fcol = vim.fn.strdisplaywidth(cursor_line:sub(1, cursor_pos[2])) - win_view.leftcol
 
   return {
     hwin = win_handle,
@@ -64,7 +57,7 @@ function M.get_window_context(opts)
 
   contexts[1] = {
     buffer_handle = cur_hbuf,
-    contexts = { window_context(cur_hwin) },
+    contexts = { window_context(cur_hwin, cur_hbuf) },
   }
 
   if not opts.multi_windows then
@@ -80,7 +73,7 @@ function M.get_window_context(opts)
       if not (w == cur_hwin or vim.tbl_contains(opts.excluded_filetypes, vim.bo[b].filetype)) then
         contexts[#contexts + 1] = {
           buffer_handle = b,
-          contexts = { window_context(w) },
+          contexts = { window_context(w, b) },
         }
       end
     end

@@ -23,5 +23,6 @@ M.hint_offset = 0
 M.hint_type = hint.HintType.OVERLAY ---@type HintType
 M.excluded_filetypes = {}
 M.yank_register = ''
+M.match_mappings = { }
 
 return M
