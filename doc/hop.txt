@@ -854,17 +854,18 @@ below.
         `excluded_filetypes = { }`
 
 `match_mappings`
-    What match mappings to use when hint. If `match_mappings` is not empty, the
-    hint char or pattern will act as key of dict of mappings, and get the dict
-    pattern to search.
+    This option allows you to specify the match mappings to use when applying
+    the hint. If you set a non-empty `match_mappings`, the hint will be used as
+    a key to look up the pattern to search for.
 
     Currently supported mappings:~
+        'fa' : farsi characters
         'zh' : Basic characters for Chinese
         'zh_sc' : Simplified Chinese
         'zh_tc' : Traditional Chinese
 
     For example, if `match_mappings` is set to `{'zh', 'zh_sc'}`, the characters
-    in 'zh' and 'zh_sc' can be mixed match together.
+    in 'zh' and 'zh_sc' can be mixed to match together.
 
     Defaults:~
         `match_mappings = { }`

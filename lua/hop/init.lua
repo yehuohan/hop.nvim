@@ -584,10 +584,13 @@ function M.setup(opts)
   M.initialized = true
 
   -- Load dict of match mappings
-  for _, d in ipairs(M.opts.match_mappings) do
-    local val = require('hop.mappings.' .. d)
-    if val ~= nil then
-      M.opts.match_mappings[d] = val
+  if #M.opts.match_mappings > 0 then
+    M.opts.loaded_mappings = {}
+    for _, map in ipairs(M.opts.match_mappings) do
+      local val = require('hop.mappings.' .. map)
+      if val ~= nil then
+        M.opts.loaded_mappings[map] = val
+      end
     end
   end
 

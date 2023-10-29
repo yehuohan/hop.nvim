@@ -2,9 +2,10 @@ local hint = require('hop.hint')
 
 ---@class WindowContext
 ---@field hwin number
----@field cursor_pos table
+---@field cursor_pos number[]
 ---@field top_line number
 ---@field bot_line number
+---@field fcol number
 ---@field win_width number
 ---@field col_offset number
 
@@ -32,7 +33,7 @@ local function window_context(win_handle, buf_handle)
     win_width = win_info.width - win_info.textoff
   end
   local cursor_line = vim.api.nvim_buf_get_lines(buf_handle, cursor_pos[1] - 1, cursor_pos[1], false)[1]
-  cursor_pos.fcol = vim.fn.strdisplaywidth(cursor_line:sub(1, cursor_pos[2])) - win_view.leftcol
+  local fcol = vim.fn.strdisplaywidth(cursor_line:sub(1, cursor_pos[2])) - win_view.leftcol
 
   return {
     hwin = win_handle,
@@ -40,6 +41,7 @@ local function window_context(win_handle, buf_handle)
     top_line = win_info.topline - 1,
     bot_line = win_info.botline,
     win_width = win_width,
+    fcol = fcol,
     col_offset = win_view.leftcol,
   }
 end

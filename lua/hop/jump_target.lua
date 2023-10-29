@@ -27,7 +27,8 @@
 ---@field x_bias number
 ---@field line_context LineContext
 ---@field col_offset number
----@field cursor_pos any[]
+---@field cursor_pos number[]
+---@field fcol number
 ---@field win_width number
 ---@field direction HintDirection
 ---@field hint_position HintPosition
@@ -66,26 +67,26 @@ local function str_col2char(line, col)
     return 0
   end
 
-  local lw = vim.fn.strdisplaywidth(line)
-  local lc = vim.fn.strchars(line)
+  local line_width = vim.fn.strdisplaywidth(line)
+  local line_chars = vim.fn.strchars(line)
   -- No multi-byte character
-  if lw == lc then
+  if line_width == line_chars then
     return col
   end
   -- Line is shorter than col, all line should include
-  if lw <= col then
-    return lc
+  if line_width <= col then
+    return line_chars
   end
 
   local lst
-  if lc >= col then
-    -- Line is very long
+  -- Line is very long
+  if line_chars >= col then
+    -- split the line to individual characters
     lst = vim.fn.split(vim.fn.strcharpart(line, 0, col), '\\zs')
   else
     lst = vim.fn.split(line, '\\zs')
   end
-  local i = 0
-  local w = 0
+  local i, w = 0, 0
   repeat
     i = i + 1
     w = w + vim.fn.strdisplaywidth(lst[i])
@@ -111,22 +112,23 @@ local function mark_jump_targets_line(ctx)
   local shifted_line = vim.fn.strcharpart(ctx.line_context.line, left_idx, right_idx - left_idx)
   local col_bias = vim.fn.byteidx(ctx.line_context.line, left_idx)
 
+  -- We want to change the start offset so that we ignore everything before the cursor
   if ctx.direction == hint.HintDirection.AFTER_CURSOR then
-    -- We want to change the start offset so that we ignore everything before the cursor
     shifted_line = shifted_line:sub(ctx.cursor_pos[2] - col_bias + 1)
     col_bias = ctx.cursor_pos[2]
-  elseif ctx.direction == hint.HintDirection.BEFORE_CURSOR then
     -- We want to change the end
+  elseif ctx.direction == hint.HintDirection.BEFORE_CURSOR then
     shifted_line = shifted_line:sub(1, ctx.cursor_pos[2] - col_bias + 1)
   end
+
+  -- No possible position to place target
   if shifted_line == '' and ctx.col_offset > 0 then
-    -- No possible position to place target
     return jump_targets
   end
 
   ---@type MatchContext
   local match_context = {
-    cursor_fcol = ctx.cursor_pos.fcol,
+    cursor_fcol = ctx.fcol,
     direction = ctx.direction,
   }
 
