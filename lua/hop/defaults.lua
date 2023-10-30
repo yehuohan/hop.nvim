@@ -1,5 +1,6 @@
 ---@class Options
 ---@field direction HintDirection
+---@field loaded_mappings any
 local M = {}
 
 local hint = require('hop.hint')
@@ -23,5 +24,6 @@ M.hint_offset = 0
 M.hint_type = hint.HintType.OVERLAY ---@type HintType
 M.excluded_filetypes = {}
 M.yank_register = ''
+M.match_mappings = {}
 
 return M
