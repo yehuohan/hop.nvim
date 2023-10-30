@@ -241,6 +241,7 @@ function M.jump_targets_by_scanning_lines(regex)
         window.clip_window_context(wctx, opts.direction)
 
         Context.win_handle = wctx.hwin
+        Context.fcol = wctx.fcol
         Context.col_offset = wctx.col_offset
         Context.win_width = wctx.win_width
         Context.cursor_pos = wctx.cursor_pos
@@ -475,6 +476,8 @@ end
 function M.regex_by_vertical()
   return {
     oneshot = true,
+    ---@param s string
+    ---@param mctx MatchContext
     match = function(s, mctx)
       if mctx.direction == hint.HintDirection.AFTER_CURSOR then
         return 0, 1
