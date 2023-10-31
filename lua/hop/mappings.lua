@@ -17,9 +17,7 @@ function M.checkout(pat, opts)
       end
     end
 
-    if dict_char_pat == '' then
-      dict_pat = dict_pat .. char
-    else
+    if dict_char_pat ~= '' then
       dict_pat = dict_pat .. '[' .. dict_char_pat .. ']'
     end
   end
