@@ -23,9 +23,8 @@ local M = {}
 ---@param win_handle number
 ---@return WindowContext
 local function window_context(win_handle, buf_handle)
-  vim.api.nvim_set_current_win(win_handle)
   local win_info = vim.fn.getwininfo(win_handle)[1]
-  local win_view = vim.fn.winsaveview()
+  local win_view = vim.api.nvim_win_call(win_handle, vim.fn.winsaveview)
   local cursor_pos = vim.api.nvim_win_get_cursor(win_handle)
 
   local win_width = nil
