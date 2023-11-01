@@ -236,17 +236,17 @@ function M.jump_targets_by_scanning_lines(regex)
     -- Iterate all buffers
     for _, bctx in ipairs(all_ctxs) do
       -- Iterate all windows of a same buffer
-      Context.buf_handle = bctx.buffer_handle
+      Context.buf_handle = bctx.buf_handle
       for _, wctx in ipairs(bctx.contexts) do
         window.clip_window_context(wctx, opts.direction)
 
-        Context.win_handle = wctx.hwin
+        Context.win_handle = wctx.win_handle
         Context.fcol = wctx.fcol
         Context.col_offset = wctx.col_offset
         Context.win_width = wctx.win_width
         Context.cursor_pos = wctx.cursor_pos
         -- Get all lines' context
-        local lines = window.get_lines_context(bctx.buffer_handle, wctx)
+        local lines = window.get_lines_context(bctx.buf_handle, wctx)
         -- in the case of a direction, we want to treat the first or last line (according to the direction) differently
         if opts.direction == hint.HintDirection.AFTER_CURSOR then
           -- the first line is to be checked first
