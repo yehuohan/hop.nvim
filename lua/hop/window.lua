@@ -1,7 +1,7 @@
 local hint = require('hop.hint')
 
 ---@class WindowContext
----@field hwin number
+---@field win_handle number
 ---@field cursor_pos number[]
 ---@field top_line number
 ---@field bot_line number
@@ -10,7 +10,7 @@ local hint = require('hop.hint')
 ---@field col_offset number
 
 ---@class Context
----@field buffer_handle number
+---@field buf_handle number
 ---@field contexts WindowContext[]
 
 ---@class LineContext
@@ -35,7 +35,7 @@ local function window_context(win_handle, buf_handle)
   local fcol = vim.fn.strdisplaywidth(cursor_line:sub(1, cursor_pos[2])) - win_view.leftcol
 
   return {
-    hwin = win_handle,
+    win_handle = win_handle,
     cursor_pos = cursor_pos,
     top_line = win_info.topline - 1,
     bot_line = win_info.botline,
@@ -57,7 +57,7 @@ function M.get_window_context(opts)
   local cur_hbuf = vim.api.nvim_win_get_buf(cur_hwin)
 
   contexts[1] = {
-    buffer_handle = cur_hbuf,
+    buf_handle = cur_hbuf,
     contexts = { window_context(cur_hwin, cur_hbuf) },
   }
 
@@ -73,7 +73,7 @@ function M.get_window_context(opts)
       -- skips current window and excluded filetypes
       if not (w == cur_hwin or vim.tbl_contains(opts.excluded_filetypes, vim.bo[b].filetype)) then
         contexts[#contexts + 1] = {
-          buffer_handle = b,
+          buf_handle = b,
           contexts = { window_context(w, b) },
         }
       end
@@ -93,7 +93,7 @@ function M.get_lines_context(buf_handle, context)
 
   local lnr = context.top_line
   while lnr < context.bot_line do -- top_line is inclusive and bot_line is exclusive
-    local fold_end = vim.api.nvim_win_call(context.hwin, function()
+    local fold_end = vim.api.nvim_win_call(context.win_handle, function()
       return vim.fn.foldclosedend(lnr + 1) -- `foldclosedend()` use 1-based line number
     end)
     if fold_end == -1 then -- line isn't folded
