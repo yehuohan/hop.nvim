@@ -1,20 +1,9 @@
 local hop = require('hop')
 local eq = assert.are.same
 local api = vim.api
+local hop_helpers = require('hop_helpers')
 
-local function override_keyseq(seq, closure)
-  local mocked = vim.fn.getcharstr
-
-  local idx = 0
-  vim.fn.getcharstr = function()
-    idx = idx + 1
-    return seq[idx]
-  end
-  local r = closure()
-
-  vim.fn.getcharstr = mocked
-  return r
-end
+local override_keyseq = hop_helpers.override_keyseq
 
 describe('Hop with match mappings:', function()
   before_each(function()
