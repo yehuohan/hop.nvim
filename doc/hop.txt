@@ -209,7 +209,7 @@ creates a variant of the command that will only run for the current line.
     You can configure the position of the paste relative to the jump target by
     using the `hint_offset` option.
 
-    This is akin to calling the |hop.paste_char1| Lua Function
+    This is akin to calling the |hop-yank.paste_char1| Lua Function
 `:HopYankChar1`                                                     *:HopYankChar1*
 `:HopYankChar1BC`                                                 *:HopYankChar1BC*
 `:HopYankChar1AC`                                                 *:HopYankChar1AC*
@@ -221,13 +221,13 @@ creates a variant of the command that will only run for the current line.
     `hop.hop_char1` without jumping to bounds.
     range is (inclusive,inclusive).
 
-    This is akin to calling the |hop.yank_char1| Lua Function
+    This is akin to calling the |hop-yank.yank_char1| Lua Function
 
 `:HopNodes`                                                             *:HopNodes*
 
     Hint all Treesitter nodes surranding the node on the cursor position.
     
-    This is akin to calling the |hop.hint_nodes| Lua Function
+    This is akin to calling the |hop-treesitter.hint_nodes| Lua Function
                                                                    *hop-lua-api*
 Lua API~
 
@@ -245,8 +245,8 @@ unstable.
 `hop.jump_target` Core module used to create jump targets.
 `hop.perm`        Permutation functions. Permutations are used as labels for
                 the hints.
-`hop.yank`        Yank and paste functions
-`hop.treesitter`  Parse buffer language tree
+`hop-yank.yank`   Yank and paste functions
+`hop-treesitter.treesitter`  Parse buffer language tree
 
 Main API~
 
@@ -368,7 +368,7 @@ Most of the functions and values you need to know about are in `hop`.
     Arguments:~
         {opts}  Hop options.
 
-`hop.hint_nodes(`{opts}`)`                                         *hop.hint_nodes*
+`hop-treesitter.hint_nodes(`{opts}`)`                   *hop-treesitter.hint_nodes*
     Hint all Treesitter nodes surranding the node on the cursor position.
 
     Arguments:~
