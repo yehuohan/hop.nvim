@@ -156,6 +156,7 @@ end
 function M.get_input_pattern(prompt, maxchar, opts)
   local hint = require('hop.hint')
   local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   local hs = {}
   if opts then
@@ -179,7 +180,7 @@ function M.get_input_pattern(prompt, maxchar, opts)
     if opts then
       clear_namespace(hs.buf_list, hs.preview_ns)
       if #pat > 0 then
-        local ok, re = pcall(jump_target.regex_by_case_searching, pat, false, opts)
+        local ok, re = pcall(jump_regex.regex_by_case_searching, pat, false, opts)
         if ok then
           local jump_target_gtr = jump_target.jump_targets_by_scanning_lines(re)
           local generated = jump_target_gtr(opts)
@@ -269,7 +270,7 @@ function M.hint_with(jump_target_gtr, opts)
   end)
 end
 
----@param regex Regex
+---@param regex JumpRegex
 ---@param opts Options
 ---@param callback function|nil
 function M.hint_with_regex(regex, opts, callback)
@@ -416,23 +417,23 @@ end
 
 ---@param opts Options
 function M.hint_words(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.regex_by_word_start(), opts)
+  M.hint_with_regex(jump_regex.regex_by_word_start(), opts)
 end
 
 function M.hint_camel_case(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.regex_by_camel_case(), opts)
+  M.hint_with_regex(jump_regex.regex_by_camel_case(), opts)
 end
 
 ---@param opts Options
 ---@param pattern string|nil
 function M.hint_patterns(opts, pattern)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
 
@@ -456,11 +457,11 @@ function M.hint_patterns(opts, pattern)
     return
   end
 
-  M.hint_with_regex(jump_target.regex_by_case_searching(pat, false, opts), opts)
+  M.hint_with_regex(jump_regex.regex_by_case_searching(pat, false, opts), opts)
 end
 
 function M.hint_char1(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
 
@@ -468,11 +469,11 @@ function M.hint_char1(opts)
   if not c then
     return
   end
-  M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts)
+  M.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts)
 end
 
 function M.hint_char2(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
 
@@ -480,35 +481,35 @@ function M.hint_char2(opts)
   if not c then
     return
   end
-  M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts)
+  M.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts)
 end
 
 function M.hint_lines(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.by_line_start(), opts)
+  M.hint_with_regex(jump_regex.by_line_start(), opts)
 end
 
 function M.hint_vertical(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.regex_by_vertical(), opts)
+  M.hint_with_regex(jump_regex.regex_by_vertical(), opts)
 end
 
 function M.hint_lines_skip_whitespace(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.regex_by_line_start_skip_whitespace(), opts)
+  M.hint_with_regex(jump_regex.regex_by_line_start_skip_whitespace(), opts)
 end
 
 function M.hint_anywhere(opts)
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = override_opts(opts)
-  M.hint_with_regex(jump_target.regex_by_anywhere(), opts)
+  M.hint_with_regex(jump_regex.regex_by_anywhere(), opts)
 end
 
 -- Setup user settings.
