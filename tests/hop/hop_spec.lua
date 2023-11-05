@@ -2,18 +2,11 @@ local hop = require('hop')
 local hop_hint = require('hop.hint')
 local api = vim.api
 local eq = assert.are.same
+local hop_helpers = require('hop_helpers')
+
+local override_keyseq = hop_helpers.override_keyseq
+
 local test_count = 0
-
-local function override_getcharstr(override, closure)
-  local mocked = vim.fn.getcharstr
-  vim.fn.getcharstr = override
-
-  local r = closure()
-
-  vim.fn.getcharstr = mocked
-
-  return r
-end
 
 describe('Hop movement is correct', function()
   before_each(function()
@@ -32,46 +25,20 @@ describe('Hop movement is correct', function()
   it('HopChar1AC', function()
     vim.api.nvim_win_set_cursor(0, { 1, 1 })
 
-    local key_counter = 0
-    override_getcharstr(function()
-      key_counter = key_counter + 1
-      if key_counter == 1 then
-        return 'c'
-      end
-      if key_counter == 2 then
-        return 's'
-      end
-    end, function()
+    override_keyseq({ 'c', 's' }, function()
       hop.hint_char1({ direction = hop_hint.HintDirection.AFTER_CURSOR })
     end)
-
-    local end_pos = api.nvim_win_get_cursor(0)
-
-    eq(end_pos[2], 28)
+    eq(28, api.nvim_win_get_cursor(0)[2])
   end)
 
   it('HopChar2AC', function()
     vim.api.nvim_win_set_cursor(0, { 1, 1 })
 
-    local key_counter = 0
-    override_getcharstr(function()
-      key_counter = key_counter + 1
-      if key_counter == 1 then
-        return 'c'
-      end
-      if key_counter == 2 then
-        return 'd'
-      end
-      if key_counter == 3 then
-        return 's'
-      end
-    end, function()
+    override_keyseq({ 'c', 'd', 's' }, function()
       hop.hint_char2({ direction = hop_hint.HintDirection.AFTER_CURSOR })
     end)
 
-    local end_pos = api.nvim_win_get_cursor(0)
-
-    eq(end_pos[2], 28)
+    eq(28, api.nvim_win_get_cursor(0)[2])
   end)
 
   it('Hop from empty line', function()
@@ -82,41 +49,18 @@ describe('Hop movement is correct', function()
     })
     vim.api.nvim_win_set_cursor(0, { 2, 1 })
 
-    local key_counter = 0
-    override_getcharstr(function()
-      key_counter = key_counter + 1
-      if key_counter == 1 then
-        return 'c'
-      end
-      if key_counter == 2 then
-        return 's'
-      end
-    end, function()
+    override_keyseq({ 'c', 's' }, function()
       hop.hint_char1({ direction = hop_hint.HintDirection.AFTER_CURSOR })
     end)
 
-    local end_pos = api.nvim_win_get_cursor(0)
-
-    eq(end_pos[2], 28)
-    eq(end_pos[1], 3)
+    eq({ 3, 28 }, api.nvim_win_get_cursor(0))
 
     vim.api.nvim_win_set_cursor(0, { 2, 1 })
-    key_counter = 0
-    override_getcharstr(function()
-      key_counter = key_counter + 1
-      if key_counter == 1 then
-        return 'c'
-      end
-      if key_counter == 2 then
-        return 's'
-      end
-    end, function()
+
+    override_keyseq({ 'c', 's' }, function()
       hop.hint_char1({ direction = hop_hint.HintDirection.BEFORE_CURSOR })
     end)
 
-    local end_pos = api.nvim_win_get_cursor(0)
-
-    eq(end_pos[2], 28)
-    eq(end_pos[1], 1)
+    eq({ 1, 28 }, api.nvim_win_get_cursor(0))
   end)
-  end)
+end)
