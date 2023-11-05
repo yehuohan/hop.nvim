@@ -1,4 +1,4 @@
-local jump_targets = require('hop.jump_target')
+local jump_target = require('hop.jump_target')
 
 local T = {}
 
@@ -9,7 +9,7 @@ T.nodes = function()
   ---@return Locations
   return function(opts)
     local Locations = T.parse(opts.ignore_injections)
-    jump_targets.sort_indirect_jump_targets(Locations.indirect_jump_targets, opts)
+    jump_target.sort_indirect_jump_targets(Locations.indirect_jump_targets, opts)
     return Locations
   end
 end

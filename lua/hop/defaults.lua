@@ -23,7 +23,7 @@ M.hint_position = hint.HintPosition.BEGIN ---@type HintPosition
 M.hint_offset = 0 ---@type WindowCell
 M.hint_type = hint.HintType.OVERLAY ---@type HintType
 M.excluded_filetypes = {}
-M.yank_register = ''
 M.match_mappings = {}
+M.extensions = { 'hop-yank', 'hop-treesitter' }
 
 return M
