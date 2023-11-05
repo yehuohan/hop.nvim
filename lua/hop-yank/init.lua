@@ -8,7 +8,7 @@ local defaults = {
 ---@param opts Options
 M.yank_char1 = function(opts)
   local hop = require('hop')
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
   local yank = require('hop-yank.yank')
 
   opts = setmetatable(opts or {}, { __index = M.opts })
@@ -31,7 +31,7 @@ M.yank_char1 = function(opts)
       return
     end
 
-    hop.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts, function(jt)
+    hop.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts, function(jt)
       targets[key] = jt
     end)
   end
@@ -51,7 +51,7 @@ end
 ---@param opts Options
 M.paste_char1 = function(opts)
   local hop = require('hop')
-  local jump_target = require('hop.jump_target')
+  local jump_regex = require('hop.jump_regex')
 
   opts = setmetatable(opts or {}, { __index = M.opts })
 
@@ -61,7 +61,7 @@ M.paste_char1 = function(opts)
   end
 
   ---@param jt JumpTarget|nil
-  hop.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts, function(jt)
+  hop.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts, function(jt)
     local target = jt
 
     if target == nil then
