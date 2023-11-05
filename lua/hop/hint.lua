@@ -1,13 +1,13 @@
 local perm = require('hop.perm')
-local prio = require('hop.priority')
+local window = require('hop.window')
 
 ---@class Hint
----@field label? string
+---@field label string|nil
 ---@field jump_target JumpTarget
 
 ---@class HintState
 ---@field buf_list number[]
----@field all_ctxs Context
+---@field all_ctxs WindowContext[]
 ---@field hints Hint[]
 ---@field hl_ns number
 ---@field dim_ns number
@@ -34,12 +34,25 @@ M.HintType = {
   INLINE = 'inline',
 }
 
+---@enum HintPriority
+-- Magic constants for highlight priorities;
+--
+-- Priorities are ranged on 16-bit integers; 0 is the least priority and 2^16 - 1 is the higher.
+-- We want Hop to override everything so we use a very high priority for grey (2^16 - 3 = 65533); hint
+-- priorities are one level above (2^16 - 2) and the virtual cursor one level higher (2^16 - 1), which
+-- is the higher.
+M.HintPriority = {
+  DIM = 65533,
+  HINT = 65534,
+  CURSOR = 65535,
+}
+
 -- Reduce a hint.
 -- This function will remove hints not starting with the input key and will reduce the other ones
 -- with one level.
 ---@param label string
 ---@param key string
----@return string?
+---@return string|nil
 local function reduce_label(label, key)
   local snd_idx = vim.fn.byteidx(label, 1)
   if label:sub(1, snd_idx) == key then
@@ -56,7 +69,7 @@ end
 -- Reduce all hints and return the one fully reduced, if any.
 ---@param hints Hint[]
 ---@param key string
----@return Hint?,Hint[]
+---@return Hint|nil,Hint[]
 function M.reduce_hints(hints, key)
   local next_hints = {}
 
@@ -109,6 +122,44 @@ function M.create_hints(jump_targets, indirect_jump_targets, opts)
   return hints
 end
 
+-- Create hint state
+---@param opts Options
+---@return HintState
+function M.create_hint_state(opts)
+  ---@type HintState
+  local hint_state = {}
+
+  -- Get all window's context and buffer list
+  hint_state.all_ctxs = window.get_window_context(opts)
+  hint_state.buf_list = {}
+  local buf_sets = {}
+  for _, wctx in ipairs(hint_state.all_ctxs) do
+    if not buf_sets[wctx.buf_handle] then
+      buf_sets[wctx.buf_handle] = true
+      hint_state.buf_list[#hint_state.buf_list + 1] = wctx.buf_handle
+    end
+    -- Ensure all window contexts are cliped for hint state
+    window.clip_window_context(wctx, opts.direction)
+  end
+
+  -- Create the highlight groups; the highlight groups will allow us to clean everything at once when Hop quits
+  hint_state.hl_ns = vim.api.nvim_create_namespace('hop_hl')
+  hint_state.dim_ns = vim.api.nvim_create_namespace('hop_dim')
+
+  -- Clear namespaces in case last hop operation failed before quitting
+  for _, buf in ipairs(hint_state.buf_list) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_clear_namespace(buf, hint_state.hl_ns, 0, -1)
+      vim.api.nvim_buf_clear_namespace(buf, hint_state.dim_ns, 0, -1)
+    end
+  end
+
+  -- Backup namespaces of diagnostic
+  hint_state.diag_ns = vim.diagnostic.get_namespaces()
+
+  return hint_state
+end
+
 -- Create the extmarks for per-line hints.
 ---@param hl_ns number
 ---@param hints Hint[]
@@ -120,20 +171,19 @@ function M.set_hint_extmarks(hl_ns, hints, opts)
       label = label:upper()
     end
 
-    local col = hint.jump_target.column - 1
-
     local virt_text = { { label, 'HopNextKey' } }
-    -- get the byte index of the second hint so that we can slice it correctly
+    -- Get the byte index of the second hint so that we can slice it correctly
     if label ~= nil and vim.fn.strdisplaywidth(label) ~= 1 then
       local snd_idx = vim.fn.byteidx(label, 1)
       virt_text = { { label:sub(1, snd_idx), 'HopNextKey1' }, { label:sub(snd_idx + 1), 'HopNextKey2' } }
     end
 
-    vim.api.nvim_buf_set_extmark(hint.jump_target.buffer or 0, hl_ns, hint.jump_target.line, col, {
+    local row, col = window.pos2extmark(hint.jump_target.cursor)
+    vim.api.nvim_buf_set_extmark(hint.jump_target.buffer, hl_ns, row, col, {
       virt_text = virt_text,
       virt_text_pos = opts.hint_type,
       hl_mode = 'combine',
-      priority = prio.HINT_PRIO,
+      priority = M.HintPriority.HINT,
     })
   end
 end
@@ -142,12 +192,13 @@ end
 ---@param jump_targets JumpTarget[]
 function M.set_hint_preview(hl_ns, jump_targets)
   for _, jt in ipairs(jump_targets) do
-    vim.api.nvim_buf_set_extmark(jt.buffer, hl_ns, jt.line, jt.column - 1, {
-      end_row = jt.line,
-      end_col = jt.column - 1 + jt.length,
+    local row, col = window.pos2extmark(jt.cursor)
+    vim.api.nvim_buf_set_extmark(jt.buffer, hl_ns, row, col, {
+      end_row = row,
+      end_col = col + jt.length,
       hl_group = 'HopPreview',
       hl_eol = true,
-      priority = prio.HINT_PRIO,
+      priority = M.HintPriority.HINT,
     })
   end
 end

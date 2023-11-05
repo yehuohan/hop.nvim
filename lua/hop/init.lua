@@ -43,16 +43,6 @@ local function eprintln(msg, teasing)
   end
 end
 
----@param jump_target JumpTargetModule
----@param opts Options
----@return fun(regex:Regex):function
-local function getGenerator(jump_target, opts)
-  if opts.current_line_only then
-    return jump_target.jump_targets_for_current_line
-  end
-  return jump_target.jump_targets_by_scanning_lines
-end
-
 ---@param buf_list number[] list of buffer handles
 ---@param hl_ns number highlight namespace
 local function clear_namespace(buf_list, hl_ns)
@@ -65,87 +55,46 @@ local function clear_namespace(buf_list, hl_ns)
   end
 end
 
--- Create hint state
----@param opts Options
----@return HintState
-local function create_hint_state(opts)
-  local window = require('hop.window')
-  ---@type HintState
-  local hint_state = {}
-
-  -- get all window's context and buffer list
-  hint_state.all_ctxs = window.get_window_context(opts)
-  hint_state.buf_list = {}
-  for _, bctx in ipairs(hint_state.all_ctxs) do
-    hint_state.buf_list[#hint_state.buf_list + 1] = bctx.buf_handle
-    for _, wctx in ipairs(bctx.contexts) do
-      window.clip_window_context(wctx, opts.direction)
-    end
-  end
-
-  -- create the highlight groups; the highlight groups will allow us to clean everything at once when Hop quits
-  hint_state.hl_ns = vim.api.nvim_create_namespace('hop_hl')
-  hint_state.dim_ns = vim.api.nvim_create_namespace('hop_dim')
-
-  -- clear namespaces in case last hop operation failed before quitting
-  clear_namespace(hint_state.buf_list, hint_state.hl_ns)
-  clear_namespace(hint_state.buf_list, hint_state.dim_ns)
-
-  -- backup namespaces of diagnostic
-  hint_state.diag_ns = vim.diagnostic.get_namespaces()
-
-  return hint_state
-end
-
 -- Set the highlight of unmatched lines of the buffer.
----@param buf_handle number
 ---@param hl_ns number highlight namespace.
----@param wctx  WindowContext
+---@param wctx WindowContext
 ---@param opts Options
-local function set_unmatched_lines(buf_handle, hl_ns, wctx, opts)
+local function set_unmatched_lines(hl_ns, wctx, opts)
   local hint = require('hop.hint')
-  local prio = require('hop.priority')
+  local window = require('hop.window')
 
-  local line = vim.api.nvim_buf_get_lines(0, wctx.cursor_pos[1] - 1, wctx.cursor_pos[1], false)
+  local line = vim.api.nvim_buf_get_lines(0, wctx.cursor.row - 1, wctx.cursor.row, false)
   if line[1] and #line[1] == 0 then
     if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-      wctx.cursor_pos[2] = 0
+      wctx.cursor.col = 0
     elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-      wctx.cursor_pos[2] = -1
+      wctx.cursor.col = -1
     end
   end
 
-  local start_line = wctx.top_line
-  local end_line = wctx.bot_line
+  local start_line = wctx.line_range.top
+  local end_line = wctx.line_range.bot
+  if opts.current_line_only then
+    start_line = wctx.cursor.row
+    end_line = wctx.cursor.row
+  end
+  start_line = window.row2extmark(start_line)
+
   local start_col = 0
   local end_col = nil
   if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-    end_line = wctx.cursor_pos[1] - 1
-    end_col = wctx.cursor_pos[2]
+    end_col = wctx.cursor.col
   elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-    start_col = wctx.cursor_pos[2] + 1
-    end_col = nil
+    start_col = wctx.cursor.col + 1
   end
 
-  if opts.current_line_only then
-    if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-      start_line = wctx.cursor_pos[1] - 1
-    elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-      end_line = wctx.cursor_pos[1]
-    else
-      end_line = wctx.cursor_pos[1]
-      start_line = wctx.cursor_pos[1] - 1
-    end
-  end
-
-  local extmark_options = {
+  vim.api.nvim_buf_set_extmark(wctx.buf_handle, hl_ns, start_line, start_col, {
     end_line = end_line,
     end_col = end_col,
     hl_group = 'HopUnmatched',
     hl_eol = true,
-    priority = prio.DIM_PRIO,
-  }
-  vim.api.nvim_buf_set_extmark(buf_handle, hl_ns, start_line, start_col, extmark_options)
+    priority = hint.HintPriority.DIM,
+  })
 end
 
 -- Dim everything out to prepare the Hop session for all windows.
@@ -156,16 +105,12 @@ local function apply_dimming(hint_state, opts)
     return
   end
 
-  local window = require('hop.window')
-  for _, bctx in ipairs(hint_state.all_ctxs) do
-    for _, wctx in ipairs(bctx.contexts) do
-      window.clip_window_context(wctx, opts.direction)
-      -- dim everything out, add the virtual cursor and hide diagnostics
-      set_unmatched_lines(bctx.buf_handle, hint_state.dim_ns, wctx, opts)
-    end
+  for _, wctx in ipairs(hint_state.all_ctxs) do
+    -- Dim everything out, add the virtual cursor and hide diagnostics
+    set_unmatched_lines(hint_state.dim_ns, wctx, opts)
 
     for ns in pairs(hint_state.diag_ns) do
-      vim.diagnostic.show(ns, bctx.buf_handle, nil, { virtual_text = false })
+      vim.diagnostic.show(ns, wctx.buf_handle, nil, { virtual_text = false })
     end
   end
 end
@@ -177,7 +122,7 @@ end
 -- - there are multibyte characters on the line
 ---@param ns number
 local function add_virt_cur(ns)
-  local prio = require('hop.priority')
+  local hint = require('hop.hint')
 
   local cur_info = vim.fn.getcurpos()
   local cur_row = cur_info[2] - 1
@@ -191,30 +136,30 @@ local function add_virt_cur(ns)
     vim.api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
       virt_text = { { '█', 'Normal' } },
       virt_text_win_col = virt_col,
-      priority = prio.CURSOR_PRIO,
+      priority = hint.HintPriority.CURSOR,
     })
   else
     vim.api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
       -- end_col must be column of next character, in bytes
       end_col = vim.fn.byteidx(cur_line, vim.fn.charidx(cur_line, cur_col) + 1),
       hl_group = 'HopCursor',
-      priority = prio.CURSOR_PRIO,
+      priority = hint.HintPriority.CURSOR,
     })
   end
 end
 
 -- Get pattern from input for hint and preview
 ---@param prompt string
----@param maxchar? number
----@param opts? Options
----@return string?
+---@param maxchar number|nil
+---@param opts Options|nil
+---@return string|nil
 function M.get_input_pattern(prompt, maxchar, opts)
   local hint = require('hop.hint')
   local jump_target = require('hop.jump_target')
 
   local hs = {}
   if opts then
-    hs = create_hint_state(opts)
+    hs = hint.create_hint_state(opts)
     hs.preview_ns = vim.api.nvim_create_namespace('hop_preview')
     apply_dimming(hs, opts)
     add_virt_cur(hs.hl_ns)
@@ -226,7 +171,7 @@ function M.get_input_pattern(prompt, maxchar, opts)
   local K_CR = vim.api.nvim_replace_termcodes('<CR>', true, false, true)
   local K_NL = vim.api.nvim_replace_termcodes('<NL>', true, false, true)
   local pat_keys = {}
-  ---@type string?
+  ---@type string|nil
   local pat = ''
 
   while true do
@@ -283,42 +228,60 @@ end
 
 -- Move the cursor to a given location.
 -- This function will update the jump list.
----@param w number window handle
----@param line number line number
----@param column number
+---@param jt JumpTarget
 ---@param opts Options Add option to shift cursor by column offset
-function M.move_cursor_to(w, line, column, opts)
-  -- If we do not ask for an offset jump, we don’t have to retrieve any additional lines because we will jump to the
-  -- actual jump target. If we do want a jump with an offset, we need to retrieve the line the jump target lies in so
-  -- that we can compute the offset correctly. This is linked to the fact that currently, Neovim doesn’s have an API to
-  -- « offset something by N visual columns. »
+function M.move_cursor_to(jt, opts)
   local hint = require('hop.hint')
-  -- If it is pending for operator shift column to the right by 1
+  local window = require('hop.window')
+
+  ---@type CursorPos
+  local pos = jt.cursor
+
+  -- If it is pending for operator shift pos.col to the right by 1
   if vim.api.nvim_get_mode().mode == 'no' and opts.direction ~= hint.HintDirection.BEFORE_CURSOR then
-    column = column + 1
+    pos.col = pos.col + 1
   end
 
-  if opts.hint_offset ~= nil and not (opts.hint_offset == 0) then
-    -- Add `hint_offset` based on `charidx`.
-    local buf_line = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(w), line - 1, line, false)[1]
-    -- Since `charidx` returns -1 when `column` is the tail, subtract 1 and add 1 to the return value to get
-    -- the correct value.
-    local char_idx = vim.fn.charidx(buf_line, column - 1) + 1 + opts.hint_offset
-    column = vim.fn.byteidx(buf_line, char_idx)
+  -- Offset the jump target by `hint_offset` cells
+  if opts.hint_offset ~= nil and opts.hint_offset > 0 then
+    local line = vim.api.nvim_buf_get_lines(jt.buffer, pos.row - 1, pos.row, false)[1]
+    local line_cells = vim.fn.strdisplaywidth(line)
+    ---@type WindowCell
+    local cell_offset = vim.fn.strdisplaywidth(line:sub(1, pos.col)) + opts.hint_offset
+    if cell_offset >= line_cells then
+      cell_offset = line_cells
+    end
+    pos.col = vim.fn.byteidx(line, window.cell2char(line, cell_offset))
   end
 
-  -- update the jump list
-  vim.api.nvim_set_current_win(w)
+  -- Update the jump list
+  vim.api.nvim_set_current_win(jt.window)
   local cursor = vim.api.nvim_win_get_cursor(0)
-  vim.api.nvim_buf_set_mark(0, "'", cursor[1], cursor[2], {})
-  vim.api.nvim_win_set_cursor(w, { line, column })
+  vim.api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
+  vim.api.nvim_win_set_cursor(jt.window, { pos.row, pos.col })
 end
 
 ---@param jump_target_gtr fun(opts:Options):Locations
 ---@param opts Options
 function M.hint_with(jump_target_gtr, opts)
   M.hint_with_callback(jump_target_gtr, opts, function(jt)
-    M.move_cursor_to(jt.window, jt.line + 1, jt.column - 1, opts)
+    M.move_cursor_to(jt, opts)
+  end)
+end
+
+---@param regex Regex
+---@param opts Options
+---@param callback function|nil
+function M.hint_with_regex(regex, opts, callback)
+  local jump_target = require('hop.jump_target')
+
+  local generator = jump_target.jump_targets_by_scanning_lines
+  if opts.current_line_only then
+    generator = jump_target.jump_targets_for_current_line
+  end
+
+  M.hint_with_callback(generator(regex), opts, callback or function(jt)
+    M.move_cursor_to(jt, opts)
   end)
 end
 
@@ -334,7 +297,7 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
   end
 
   -- create hint state
-  local hs = create_hint_state(opts)
+  local hs = hint.create_hint_state(opts)
 
   -- create jump targets
   local generated = jump_target_gtr(opts)
@@ -456,24 +419,18 @@ function M.hint_words(opts)
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_word_start()), opts)
+  M.hint_with_regex(jump_target.regex_by_word_start(), opts)
 end
 
 function M.hint_camel_case(opts)
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_camel_case()), opts)
+  M.hint_with_regex(jump_target.regex_by_camel_case(), opts)
 end
 
 ---@param opts Options
----@param pattern? string
+---@param pattern string|nil
 function M.hint_patterns(opts, pattern)
   local jump_target = require('hop.jump_target')
 
@@ -499,9 +456,7 @@ function M.hint_patterns(opts, pattern)
     return
   end
 
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_case_searching(pat, false, opts)), opts)
+  M.hint_with_regex(jump_target.regex_by_case_searching(pat, false, opts), opts)
 end
 
 function M.hint_char1(opts)
@@ -513,10 +468,7 @@ function M.hint_char1(opts)
   if not c then
     return
   end
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_case_searching(c, true, opts)), opts)
+  M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts)
 end
 
 function M.hint_char2(opts)
@@ -528,53 +480,35 @@ function M.hint_char2(opts)
   if not c then
     return
   end
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_case_searching(c, true, opts)), opts)
+  M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts)
 end
 
 function M.hint_lines(opts)
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.by_line_start()), opts)
+  M.hint_with_regex(jump_target.by_line_start(), opts)
 end
 
 function M.hint_vertical(opts)
-  local hint = require('hop.hint')
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-  -- only makes sense as end position given movement goal.
-  opts.hint_position = hint.HintPosition.END
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_vertical()), opts)
+  M.hint_with_regex(jump_target.regex_by_vertical(), opts)
 end
 
 function M.hint_lines_skip_whitespace(opts)
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_line_start_skip_whitespace()), opts)
+  M.hint_with_regex(jump_target.regex_by_line_start_skip_whitespace(), opts)
 end
 
 function M.hint_anywhere(opts)
   local jump_target = require('hop.jump_target')
 
   opts = override_opts(opts)
-
-  local generator = getGenerator(jump_target, opts)
-
-  M.hint_with(generator(jump_target.regex_by_anywhere()), opts)
+  M.hint_with_regex(jump_target.regex_by_anywhere(), opts)
 end
 
 -- Setup user settings.
@@ -604,7 +538,7 @@ function M.setup(opts)
 
   -- register Hop extensions, if any
   if M.opts.extensions ~= nil then
-    for _, ext_name in pairs(opts.extensions) do
+    for _, ext_name in pairs(M.opts.extensions) do
       local ok, extension = pcall(require, ext_name)
       if not ok then
         -- 4 is error; thanks Neovim… :(
@@ -613,7 +547,7 @@ function M.setup(opts)
         if extension.register == nil then
           vim.notify(string.format('extension %s lacks the register function', ext_name), 4)
         else
-          extension.register(opts)
+          extension.register(M.opts)
         end
       end
     end
@@ -629,7 +563,6 @@ M.yank_char1 = function(opts)
   end
 
   local jump_target = require('hop.jump_target')
-  local generator = getGenerator(jump_target, opts)
   local prompts = {
     'Yank start pattern: ',
     'Yank end pattern: ',
@@ -643,7 +576,7 @@ M.yank_char1 = function(opts)
       return
     end
 
-    M.hint_with_callback(generator(jump_target.regex_by_case_searching(c, true, opts)), opts, function(jt)
+    M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts, function(jt)
       targets[key] = jt
     end)
   end
@@ -667,7 +600,6 @@ M.paste_char1 = function(opts)
   opts = override_opts(opts)
 
   local jump_target = require('hop.jump_target')
-  local generator = getGenerator(jump_target, opts)
 
   local c = M.get_input_pattern('Paste 1 char', 1)
   if not c or c == '' then
@@ -675,14 +607,14 @@ M.paste_char1 = function(opts)
   end
 
   ---@param jt JumpTarget?
-  M.hint_with_callback(generator(jump_target.regex_by_case_searching(c, true, opts)), opts, function(jt)
+  M.hint_with_regex(jump_target.regex_by_case_searching(c, true, opts), opts, function(jt)
     local target = jt
 
     if target == nil then
       return
     end
 
-    target.column = target.column + opts.hint_offset
+    target.cursor.col = target.cursor.col + opts.hint_offset
 
     require('hop.yank').paste_from(target, opts.yank_register)
   end)

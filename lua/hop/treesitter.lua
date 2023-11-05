@@ -21,7 +21,7 @@ end
 ---@return boolean
 local function duplicate(targets, row, col)
   for _, t in pairs(targets) do
-    if t.line == row and t.column == col + 1 then
+    if t.cursor.row == row and t.cursor.col == col then
       return true
     end
   end
@@ -48,7 +48,7 @@ T.parse = function(ignore_injections)
 
     local len = #locations.jump_targets + 1
     -- Increment column to convert it to 1-index
-    locations.jump_targets[len] = { buffer = 0, line = row, column = col + 1, length = 0, window = 0 }
+    locations.jump_targets[len] = { buffer = 0, cursor = { row = row + 1, col = col }, length = 0, window = 0 }
     locations.indirect_jump_targets[len] = { index = len, score = len }
   end
 

@@ -17,7 +17,14 @@ M.paste_from = function(target, register)
   end
 
   local replacement = vim.split(text, '\n', { trimempty = true })
-  vim.api.nvim_buf_set_text(0, target.line, target.column, target.line, target.column, replacement)
+  vim.api.nvim_buf_set_text(
+    target.buffer,
+    target.cursor.row - 1,
+    target.cursor.col + 1,
+    target.cursor.row - 1,
+    target.cursor.col + 1,
+    replacement
+  )
 end
 
 --- checks the range bounds and when end is before the start swaps theme
@@ -25,9 +32,9 @@ end
 ---@param end_range JumpTarget
 ---@return JumpTarget,JumpTarget
 local function check_bounds(start_range, end_range)
-  if start_range.line < end_range.line then
+  if start_range.cursor.row < end_range.cursor.row then
     return start_range, end_range
-  elseif start_range.line == end_range.line and start_range.column <= end_range.column then
+  elseif start_range.cursor.row == end_range.cursor.row and start_range.cursor.col <= end_range.cursor.col then
     return start_range, end_range
   end
   return end_range, start_range
@@ -39,7 +46,14 @@ end
 ---@return string[]
 M.get_text = function(start_range, end_range)
   start_range, end_range = check_bounds(start_range, end_range)
-  return vim.api.nvim_buf_get_text(0, start_range.line, start_range.column - 1, end_range.line, end_range.column, {})
+  return vim.api.nvim_buf_get_text(
+    0,
+    start_range.cursor.row - 1,
+    start_range.cursor.col,
+    end_range.cursor.row - 1,
+    end_range.cursor.col + 1,
+    {}
+  )
 end
 
 return M
