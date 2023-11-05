@@ -1,3 +1,4 @@
+local api = vim.api
 local M = {}
 
 -- Ensure options are sound.
@@ -20,7 +21,7 @@ local function check_opts(opts)
   end
 
   -- disable multi windows for visual mode
-  local mode = vim.api.nvim_get_mode().mode
+  local mode = api.nvim_get_mode().mode
   if mode ~= 'n' and mode ~= 'nt' then
     opts.multi_windows = false
   end
@@ -39,7 +40,7 @@ end
 ---@param teasing boolean
 local function eprintln(msg, teasing)
   if teasing then
-    vim.api.nvim_echo({ { msg, 'Error' } }, true, {})
+    api.nvim_echo({ { msg, 'Error' } }, true, {})
   end
 end
 
@@ -47,10 +48,8 @@ end
 ---@param hl_ns number highlight namespace
 local function clear_namespace(buf_list, hl_ns)
   for _, buf in ipairs(buf_list) do
-    if vim.api.nvim_buf_is_valid(buf) then
-      vim.api.nvim_buf_clear_namespace(buf, hl_ns, 0, -1)
-      -- A hack to prevent #57 by deleting twice the namespace (it’s super weird).
-      --vim.api.nvim_buf_clear_namespace(buf, hl_ns, 0, -1)
+    if api.nvim_buf_is_valid(buf) then
+      api.nvim_buf_clear_namespace(buf, hl_ns, 0, -1)
     end
   end
 end
@@ -63,7 +62,7 @@ local function set_unmatched_lines(hl_ns, wctx, opts)
   local hint = require('hop.hint')
   local window = require('hop.window')
 
-  local line = vim.api.nvim_buf_get_lines(0, wctx.cursor.row - 1, wctx.cursor.row, false)
+  local line = api.nvim_buf_get_lines(0, wctx.cursor.row - 1, wctx.cursor.row, false)
   if line[1] and #line[1] == 0 then
     if opts.direction == hint.HintDirection.BEFORE_CURSOR then
       wctx.cursor.col = 0
@@ -74,10 +73,12 @@ local function set_unmatched_lines(hl_ns, wctx, opts)
 
   local start_line = wctx.line_range.top
   local end_line = wctx.line_range.bot
+
   if opts.current_line_only then
     start_line = wctx.cursor.row
     end_line = wctx.cursor.row
   end
+
   start_line = window.row2extmark(start_line)
 
   local start_col = 0
@@ -88,7 +89,7 @@ local function set_unmatched_lines(hl_ns, wctx, opts)
     start_col = wctx.cursor.col + 1
   end
 
-  vim.api.nvim_buf_set_extmark(wctx.buf_handle, hl_ns, start_line, start_col, {
+  api.nvim_buf_set_extmark(wctx.buf_handle, hl_ns, start_line, start_col, {
     end_line = end_line,
     end_col = end_col,
     hl_group = 'HopUnmatched',
@@ -129,17 +130,17 @@ local function add_virt_cur(ns)
   local cur_col = cur_info[3] - 1 -- this gives cursor column location, in bytes
   local cur_offset = cur_info[4]
   local virt_col = cur_info[5] - 1
-  local cur_line = vim.api.nvim_get_current_line()
+  local cur_line = api.nvim_get_current_line()
 
   -- first check to see if cursor is in a tab char or past end of line or in empty line
   if cur_offset ~= 0 or #cur_line == cur_col then
-    vim.api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
+    api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
       virt_text = { { '█', 'Normal' } },
       virt_text_win_col = virt_col,
       priority = hint.HintPriority.CURSOR,
     })
   else
-    vim.api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
+    api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
       -- end_col must be column of next character, in bytes
       end_col = vim.fn.byteidx(cur_line, vim.fn.charidx(cur_line, cur_col) + 1),
       hl_group = 'HopCursor',
@@ -161,16 +162,16 @@ function M.get_input_pattern(prompt, maxchar, opts)
   local hs = {}
   if opts then
     hs = hint.create_hint_state(opts)
-    hs.preview_ns = vim.api.nvim_create_namespace('hop_preview')
+    hs.preview_ns = api.nvim_create_namespace('hop_preview')
     apply_dimming(hs, opts)
     add_virt_cur(hs.hl_ns)
   end
 
-  local K_Esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
-  local K_BS = vim.api.nvim_replace_termcodes('<BS>', true, false, true)
-  local K_C_H = vim.api.nvim_replace_termcodes('<C-H>', true, false, true)
-  local K_CR = vim.api.nvim_replace_termcodes('<CR>', true, false, true)
-  local K_NL = vim.api.nvim_replace_termcodes('<NL>', true, false, true)
+  local K_Esc = api.nvim_replace_termcodes('<Esc>', true, false, true)
+  local K_BS = api.nvim_replace_termcodes('<BS>', true, false, true)
+  local K_C_H = api.nvim_replace_termcodes('<C-H>', true, false, true)
+  local K_CR = api.nvim_replace_termcodes('<CR>', true, false, true)
+  local K_NL = api.nvim_replace_termcodes('<NL>', true, false, true)
   local pat_keys = {}
   ---@type string|nil
   local pat = ''
@@ -188,9 +189,9 @@ function M.get_input_pattern(prompt, maxchar, opts)
         end
       end
     end
-    vim.api.nvim_echo({}, false, {})
+    api.nvim_echo({}, false, {})
     vim.cmd.redraw()
-    vim.api.nvim_echo({ { prompt, 'Question' }, { pat } }, false, {})
+    api.nvim_echo({ { prompt, 'Question' }, { pat } }, false, {})
 
     local ok, key = pcall(vim.fn.getcharstr)
     if not ok then -- Interrupted by <C-c>
@@ -222,7 +223,7 @@ function M.get_input_pattern(prompt, maxchar, opts)
       M.quit(hs)
     end
   end
-  vim.api.nvim_echo({}, false, {})
+  api.nvim_echo({}, false, {})
   vim.cmd.redraw()
   return pat
 end
@@ -236,17 +237,17 @@ function M.move_cursor_to(jt, opts)
   local jump_target = require('hop.jump_target')
 
   -- If it is pending for operator shift pos.col to the right by 1
-  if vim.api.nvim_get_mode().mode == 'no' and opts.direction ~= hint.HintDirection.BEFORE_CURSOR then
+  if api.nvim_get_mode().mode == 'no' and opts.direction ~= hint.HintDirection.BEFORE_CURSOR then
     jt.cursor.col = jt.cursor.col + 1
   end
 
   jump_target.move_jump_target(jt, opts.hint_offset)
 
   -- Update the jump list
-  vim.api.nvim_set_current_win(jt.window)
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  vim.api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
-  vim.api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col })
+  api.nvim_set_current_win(jt.window)
+  local cursor = api.nvim_win_get_cursor(0)
+  api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
+  api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col })
 end
 
 ---@param jump_target_gtr fun(opts:Options):Locations
@@ -257,7 +258,7 @@ function M.hint_with(jump_target_gtr, opts)
   end)
 end
 
----@param regex JumpRegex
+---@param regex Regex
 ---@param opts Options
 ---@param callback function|nil
 function M.hint_with_regex(regex, opts, callback)
@@ -349,8 +350,8 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
       M.quit(hs)
       -- If the key captured via getchar() is not the quit_key, pass it through
       -- to nvim to be handled normally (including mappings)
-      if key ~= vim.api.nvim_replace_termcodes(opts.quit_key, true, false, true) then
-        vim.api.nvim_feedkeys(key, '', true)
+      if key ~= api.nvim_replace_termcodes(opts.quit_key, true, false, true) then
+        api.nvim_feedkeys(key, '', true)
       end
       break
     end
@@ -394,7 +395,7 @@ function M.quit(hint_state)
     -- sometimes, buffers might be unloaded; that’s the case with floats for instance (we can invoke Hop from them but
     -- then they disappear); we need to check whether the buffer is still valid before trying to do anything else with
     -- it
-    if vim.api.nvim_buf_is_valid(buf) then
+    if api.nvim_buf_is_valid(buf) then
       for ns in pairs(hint_state.diag_ns) do
         vim.diagnostic.show(ns, buf)
       end
@@ -536,11 +537,10 @@ function M.setup(opts)
     for _, ext_name in pairs(M.opts.extensions) do
       local ok, extension = pcall(require, ext_name)
       if not ok then
-        -- 4 is error; thanks Neovim… :(
-        vim.notify(string.format('extension %s wasn’t correctly loaded', ext_name), 4)
+        vim.notify(string.format('extension %s wasn’t correctly loaded', ext_name), vim.log.levels.ERROR)
       else
         if extension.register == nil then
-          vim.notify(string.format('extension %s lacks the register function', ext_name), 4)
+          vim.notify(string.format('extension %s lacks the register function', ext_name), vim.log.levels.ERROR)
         else
           extension.register(M.opts)
         end

@@ -1,8 +1,8 @@
----@alias WindowRow number 1-based line row at window
----@alias WindowCol number 0-based column at window, also as string byte index
+---@alias WindowRow integer 1-based line row at window
+---@alias WindowCol integer 0-based column at window, also as string byte index
 ---@alias WindowColRange WindowCol[] window column range with [start-inclusive, end-exclusive)
----@alias WindowCell number 0-based displayed cell column at window; often computed via `strdisplaywidth()`
----@alias WindowChar number 0-based character index at string
+---@alias WindowCell integer 0-based displayed cell column at window; often computed via `strdisplaywidth()`
+---@alias WindowChar integer 0-based character index at string
 -- For multi-byte character, there may be WindowCol ~= WindowCell ~= WindowChar like below showed
 -- LineString:   a #### b     => '##' is a 4-bytes character takes 2-cells
 -- WindowCol     0 1234 5
@@ -30,8 +30,8 @@
 ---@field line string
 
 ---@class WindowContext
----@field win_handle number
----@field buf_handle number
+---@field win_handle integer
+---@field buf_handle integer
 ---@field cursor CursorPos
 ---@field line_range LineRange
 ---@field win_width WindowCell Window cell width excluding fold, sign and number columns
@@ -39,6 +39,7 @@
 ---@field col_first WindowCell Cursor cell column relative to the first cell column displayed
 
 local M = {}
+local api = vim.api
 
 -- Convert WindowRow to extmark line
 ---@param row WindowRow
@@ -86,6 +87,7 @@ function M.cell2char(line, cell)
   else
     lst = vim.fn.split(line, '\\zs')
   end
+
   local i, w = 0, 0
   repeat
     i = i + 1
@@ -100,14 +102,17 @@ end
 ---@return WindowContext
 local function window_context(win_handle, buf_handle)
   local win_info = vim.fn.getwininfo(win_handle)[1]
-  local win_view = vim.api.nvim_win_call(win_handle, vim.fn.winsaveview)
-  local cursor_pos = vim.api.nvim_win_get_cursor(win_handle)
+  local win_view = api.nvim_win_call(win_handle, vim.fn.winsaveview)
+  local cursor_pos = api.nvim_win_get_cursor(win_handle)
   local cursor = { row = cursor_pos[1], col = cursor_pos[2] }
+
   local win_width = nil
   if not vim.wo.wrap then
+    --number of columns occupied by any	'foldcolumn', 'signcolumn' and line number in front of the text
     win_width = win_info.width - win_info.textoff
   end
-  local cursor_line = vim.api.nvim_buf_get_lines(buf_handle, cursor.row - 1, cursor.row, false)[1]
+
+  local cursor_line = api.nvim_buf_get_lines(buf_handle, cursor.row - 1, cursor.row, false)[1]
   local col_first = vim.fn.strdisplaywidth(cursor_line:sub(1, cursor.col)) - win_view.leftcol
 
   return {
@@ -129,8 +134,8 @@ function M.get_window_context(opts)
   local contexts = {}
 
   -- Generate contexts of windows
-  local cur_hwin = vim.api.nvim_get_current_win()
-  local cur_hbuf = vim.api.nvim_win_get_buf(cur_hwin)
+  local cur_hwin = api.nvim_get_current_win()
+  local cur_hbuf = api.nvim_win_get_buf(cur_hwin)
 
   contexts[1] = window_context(cur_hwin, cur_hbuf)
 
@@ -139,12 +144,14 @@ function M.get_window_context(opts)
   end
 
   -- Get the context for all the windows in current tab
-  for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_is_valid(w) and vim.api.nvim_win_get_config(w).relative == '' then
-      local b = vim.api.nvim_win_get_buf(w)
+  for _, w in ipairs(api.nvim_tabpage_list_wins(0)) do
+    local valid_win = api.nvim_win_is_valid(w)
+    local not_relative = api.nvim_win_get_config(w).relative == ''
+    if valid_win and not_relative and w ~= cur_hwin then
+      local b = api.nvim_win_get_buf(w)
 
       -- Skips current window and excluded filetypes
-      if not (w == cur_hwin or vim.tbl_contains(opts.excluded_filetypes, vim.bo[b].filetype)) then
+      if not (vim.tbl_contains(opts.excluded_filetypes, vim.bo[b].filetype)) then
         contexts[#contexts + 1] = window_context(w, b)
       end
     end
@@ -162,14 +169,14 @@ function M.get_lines_context(context)
 
   local lnr = context.line_range.top
   while lnr <= context.line_range.bot do
-    local fold_end = vim.api.nvim_win_call(context.win_handle, function()
+    local fold_end = api.nvim_win_call(context.win_handle, function()
       return vim.fn.foldclosedend(lnr)
     end)
     -- Skip folded lines
     if fold_end == -1 then
       lines[#lines + 1] = {
         line_row = lnr,
-        line = vim.api.nvim_buf_get_lines(context.buf_handle, lnr - 1, lnr, false)[1],
+        line = api.nvim_buf_get_lines(context.buf_handle, lnr - 1, lnr, false)[1],
       }
     else
       lnr = fold_end

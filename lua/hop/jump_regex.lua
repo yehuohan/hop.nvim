@@ -1,4 +1,4 @@
----@class JumpRegex
+---@class Regex
 ---@field oneshot boolean
 ---@field linewise boolean Determines if regex considers whole lines
 ---@field match fun(s:string, mctx:MatchContext):WindowColRange Get JumpTarget column range within the line sting
@@ -35,7 +35,7 @@ end
 -- JumpRegex by searching a pattern.
 ---@param pat string
 ---@param plain_search boolean|nil
----@return JumpRegex
+---@return Regex
 local function regex_by_searching(pat, plain_search)
   if plain_search then
     pat = vim.fn.escape(pat, '\\/.$^~[]')
@@ -55,7 +55,7 @@ end
 ---@param pat string
 ---@param plain_search boolean
 ---@param opts Options
----@return JumpRegex
+---@return Regex
 function M.regex_by_case_searching(pat, plain_search, opts)
   local pat_case = ''
   if vim.o.smartcase then
@@ -86,13 +86,13 @@ function M.regex_by_case_searching(pat, plain_search, opts)
 end
 
 -- Word regex.
----@return JumpRegex
+---@return Regex
 function M.regex_by_word_start()
   return regex_by_searching('\\k\\+')
 end
 
 -- Camel case regex
----@return JumpRegex
+---@return Regex
 function M.regex_by_camel_case()
   local camel = '\\u\\l\\+'
   local acronyms = '\\u\\+\\ze\\u\\l'
@@ -118,7 +118,7 @@ function M.regex_by_camel_case()
 end
 
 -- Line regex.
----@return JumpRegex
+---@return Regex
 function M.by_line_start()
   return {
     oneshot = true,
@@ -130,7 +130,7 @@ function M.by_line_start()
 end
 
 -- Line regex at cursor position.
----@return JumpRegex
+---@return Regex
 function M.regex_by_vertical()
   return {
     oneshot = true,
@@ -153,7 +153,7 @@ function M.regex_by_vertical()
 end
 
 -- Line regex skipping finding the first non-whitespace character on each line.
----@return JumpRegex
+---@return Regex
 function M.regex_by_line_start_skip_whitespace()
   local regex = vim.regex('\\S')
 
@@ -167,7 +167,7 @@ function M.regex_by_line_start_skip_whitespace()
 end
 
 -- Anywhere regex.
----@return JumpRegex
+---@return Regex
 function M.regex_by_anywhere()
   return regex_by_searching('\\v(<.|^$)|(.>|^$)|(\\l)\\zs(\\u)|(_\\zs.)|(#\\zs.)')
 end

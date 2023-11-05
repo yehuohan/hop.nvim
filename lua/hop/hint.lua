@@ -1,16 +1,18 @@
 local perm = require('hop.perm')
 local window = require('hop.window')
+local api = vim.api
 
 ---@class Hint
 ---@field label string|nil
 ---@field jump_target JumpTarget
 
 ---@class HintState
----@field buf_list number[]
+---@field buf_list integer[]
 ---@field all_ctxs WindowContext[]
 ---@field hints Hint[]
----@field hl_ns number
----@field dim_ns number
+---@field hl_ns integer
+---@field dim_ns integer
+---@field preview_ns integer
 ---@field diag_ns table
 
 local M = {}
@@ -129,7 +131,6 @@ function M.create_hint_state(opts)
   ---@type HintState
   local hint_state = {}
 
-  -- Get all window's context and buffer list
   hint_state.all_ctxs = window.get_window_context(opts)
   hint_state.buf_list = {}
   local buf_sets = {}
@@ -143,14 +144,14 @@ function M.create_hint_state(opts)
   end
 
   -- Create the highlight groups; the highlight groups will allow us to clean everything at once when Hop quits
-  hint_state.hl_ns = vim.api.nvim_create_namespace('hop_hl')
-  hint_state.dim_ns = vim.api.nvim_create_namespace('hop_dim')
+  hint_state.hl_ns = api.nvim_create_namespace('hop_hl')
+  hint_state.dim_ns = api.nvim_create_namespace('hop_dim')
 
   -- Clear namespaces in case last hop operation failed before quitting
   for _, buf in ipairs(hint_state.buf_list) do
-    if vim.api.nvim_buf_is_valid(buf) then
-      vim.api.nvim_buf_clear_namespace(buf, hint_state.hl_ns, 0, -1)
-      vim.api.nvim_buf_clear_namespace(buf, hint_state.dim_ns, 0, -1)
+    if api.nvim_buf_is_valid(buf) then
+      api.nvim_buf_clear_namespace(buf, hint_state.hl_ns, 0, -1)
+      api.nvim_buf_clear_namespace(buf, hint_state.dim_ns, 0, -1)
     end
   end
 
@@ -161,7 +162,7 @@ function M.create_hint_state(opts)
 end
 
 -- Create the extmarks for per-line hints.
----@param hl_ns number
+---@param hl_ns integer
 ---@param hints Hint[]
 ---@param opts Options
 function M.set_hint_extmarks(hl_ns, hints, opts)
@@ -179,7 +180,7 @@ function M.set_hint_extmarks(hl_ns, hints, opts)
     end
 
     local row, col = window.pos2extmark(hint.jump_target.cursor)
-    vim.api.nvim_buf_set_extmark(hint.jump_target.buffer, hl_ns, row, col, {
+    api.nvim_buf_set_extmark(hint.jump_target.buffer, hl_ns, row, col, {
       virt_text = virt_text,
       virt_text_pos = opts.hint_type,
       hl_mode = 'combine',
@@ -188,12 +189,12 @@ function M.set_hint_extmarks(hl_ns, hints, opts)
   end
 end
 
----@param hl_ns number
+---@param hl_ns integer
 ---@param jump_targets JumpTarget[]
 function M.set_hint_preview(hl_ns, jump_targets)
   for _, jt in ipairs(jump_targets) do
     local row, col = window.pos2extmark(jt.cursor)
-    vim.api.nvim_buf_set_extmark(jt.buffer, hl_ns, row, col, {
+    api.nvim_buf_set_extmark(jt.buffer, hl_ns, row, col, {
       end_row = row,
       end_col = col + jt.length,
       hl_group = 'HopPreview',
