@@ -233,33 +233,20 @@ end
 ---@param opts Options Add option to shift cursor by column offset
 function M.move_cursor_to(jt, opts)
   local hint = require('hop.hint')
-  local window = require('hop.window')
-
-  ---@type CursorPos
-  local pos = jt.cursor
+  local jump_target = require('hop.jump_target')
 
   -- If it is pending for operator shift pos.col to the right by 1
   if vim.api.nvim_get_mode().mode == 'no' and opts.direction ~= hint.HintDirection.BEFORE_CURSOR then
-    pos.col = pos.col + 1
+    jt.cursor.col = jt.cursor.col + 1
   end
 
-  -- Offset the jump target by `hint_offset` cells
-  if opts.hint_offset ~= nil and opts.hint_offset > 0 then
-    local line = vim.api.nvim_buf_get_lines(jt.buffer, pos.row - 1, pos.row, false)[1]
-    local line_cells = vim.fn.strdisplaywidth(line)
-    ---@type WindowCell
-    local cell_offset = vim.fn.strdisplaywidth(line:sub(1, pos.col)) + opts.hint_offset
-    if cell_offset >= line_cells then
-      cell_offset = line_cells
-    end
-    pos.col = vim.fn.byteidx(line, window.cell2char(line, cell_offset))
-  end
+  jump_target.move_jump_target(jt, opts.hint_offset)
 
   -- Update the jump list
   vim.api.nvim_set_current_win(jt.window)
   local cursor = vim.api.nvim_win_get_cursor(0)
   vim.api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
-  vim.api.nvim_win_set_cursor(jt.window, { pos.row, pos.col })
+  vim.api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col })
 end
 
 ---@param jump_target_gtr fun(opts:Options):Locations
@@ -423,6 +410,7 @@ function M.hint_words(opts)
   M.hint_with_regex(jump_regex.regex_by_word_start(), opts)
 end
 
+---@param opts Options
 function M.hint_camel_case(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -460,6 +448,7 @@ function M.hint_patterns(opts, pattern)
   M.hint_with_regex(jump_regex.regex_by_case_searching(pat, false, opts), opts)
 end
 
+---@param opts Options
 function M.hint_char1(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -472,6 +461,7 @@ function M.hint_char1(opts)
   M.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts)
 end
 
+---@param opts Options
 function M.hint_char2(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -484,6 +474,7 @@ function M.hint_char2(opts)
   M.hint_with_regex(jump_regex.regex_by_case_searching(c, true, opts), opts)
 end
 
+---@param opts Options
 function M.hint_lines(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -491,6 +482,7 @@ function M.hint_lines(opts)
   M.hint_with_regex(jump_regex.by_line_start(), opts)
 end
 
+---@param opts Options
 function M.hint_vertical(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -498,6 +490,7 @@ function M.hint_vertical(opts)
   M.hint_with_regex(jump_regex.regex_by_vertical(), opts)
 end
 
+---@param opts Options
 function M.hint_lines_skip_whitespace(opts)
   local jump_regex = require('hop.jump_regex')
 
@@ -505,6 +498,7 @@ function M.hint_lines_skip_whitespace(opts)
   M.hint_with_regex(jump_regex.regex_by_line_start_skip_whitespace(), opts)
 end
 
+---@param opts Options
 function M.hint_anywhere(opts)
   local jump_regex = require('hop.jump_regex')
 

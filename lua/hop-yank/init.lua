@@ -51,6 +51,7 @@ end
 ---@param opts Options
 M.paste_char1 = function(opts)
   local hop = require('hop')
+  local jump_target = require('hop.jump_target')
   local jump_regex = require('hop.jump_regex')
 
   opts = setmetatable(opts or {}, { __index = M.opts })
@@ -68,7 +69,7 @@ M.paste_char1 = function(opts)
       return
     end
 
-    target.cursor.col = target.cursor.col + opts.hint_offset
+    jump_target.move_jump_target(target, opts.hint_offset)
 
     require('hop-yank.yank').paste_from(target, opts.yank_register)
   end)
