@@ -1,6 +1,12 @@
 local api = vim.api
 local M = {}
 
+local K_Esc = api.nvim_replace_termcodes('<Esc>', true, false, true)
+local K_BS = api.nvim_replace_termcodes('<BS>', true, false, true)
+local K_C_H = api.nvim_replace_termcodes('<C-H>', true, false, true)
+local K_CR = api.nvim_replace_termcodes('<CR>', true, false, true)
+local K_NL = api.nvim_replace_termcodes('<NL>', true, false, true)
+
 -- Ensure options are sound.
 --
 -- Some options cannot be used together. For instance, multi_windows and current_line_only don’t really make sense used
@@ -137,28 +143,23 @@ function M.get_input_pattern(prompt, maxchar, opts)
     apply_dimming(hs, opts)
   end
 
-  local K_Esc = api.nvim_replace_termcodes('<Esc>', true, false, true)
-  local K_BS = api.nvim_replace_termcodes('<BS>', true, false, true)
-  local K_C_H = api.nvim_replace_termcodes('<C-H>', true, false, true)
-  local K_CR = api.nvim_replace_termcodes('<CR>', true, false, true)
-  local K_NL = api.nvim_replace_termcodes('<NL>', true, false, true)
   local pat_keys = {}
   ---@type string|nil
   local pat = ''
 
   while true do
     pat = vim.fn.join(pat_keys, '')
-    if opts then
+
+    if opts and #pat > 0 then
       clear_namespace(hs.buf_list, hs.preview_ns)
-      if #pat > 0 then
-        local ok, re = pcall(jump_regex.regex_by_case_searching, pat, false, opts)
-        if ok then
-          local jump_target_gtr = jump_target.jump_targets_by_scanning_lines(re)
-          local generated = jump_target_gtr(opts)
-          hint.set_hint_preview(hs.preview_ns, generated.jump_targets)
-        end
+      local ok, re = pcall(jump_regex.regex_by_case_searching, pat, false, opts)
+      if ok then
+        local jump_target_gtr = jump_target.jump_targets_by_scanning_lines(re)
+        local generated = jump_target_gtr(opts)
+        hint.set_hint_preview(hs.preview_ns, generated.jump_targets)
       end
     end
+
     api.nvim_echo({}, false, {})
     vim.cmd.redraw()
     api.nvim_echo({ { prompt, 'Question' }, { pat } }, false, {})
@@ -214,9 +215,11 @@ function M.move_cursor_to(jt, opts)
   jump_target.move_jump_target(jt, opts.hint_offset)
 
   -- Update the jump list
+  -- There is bug with set extmark neovim/neovim#17861
   api.nvim_set_current_win(jt.window)
-  local cursor = api.nvim_win_get_cursor(0)
-  api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
+  --local cursor = api.nvim_win_get_cursor(0)
+  --api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
+  vim.cmd("normal! m'")
   api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col })
 end
 
@@ -251,7 +254,7 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
   local hint = require('hop.hint')
 
   if not M.initialized then
-    vim.notify('Hop is not initialized; please call the setup function', 4)
+    vim.notify('Hop is not initialized; please call the setup function', vim.log.levels.ERROR)
     return
   end
 
@@ -298,25 +301,21 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
       M.quit(hs)
       break
     end
+
+    -- Special keys are string and start with 128 see :h getchar
     local not_special_key = true
-    -- :h getchar(): "If the result of expr is a single character, it returns a
-    -- number. Use nr2char() to convert it to a String." Also the result is a
-    -- special key if it's a string and its first byte is 128.
-    --
-    -- Note of caution: Even though the result of `getchar()` might be a single
-    -- character, that character might still be multiple bytes.
-    if key:byte() == 128 then
+    if key and key:byte() == 128 then
       not_special_key = false
     end
 
+    -- If this is a key used in Hop (via opts.keys), deal with it in Hop
+    -- otherwise quit Hop
     if not_special_key and opts.keys:find(key, 1, true) then
-      -- If this is a key used in Hop (via opts.keys), deal with it in Hop
       h = M.refine_hints(key, hs, callback, opts)
       vim.cmd.redraw()
     else
-      -- If it's not, quit Hop
       M.quit(hs)
-      -- If the key captured via getchar() is not the quit_key, pass it through
+      -- If the captured key is not the quit_key, pass it through
       -- to nvim to be handled normally (including mappings)
       if key ~= api.nvim_replace_termcodes(opts.quit_key, true, false, true) then
         api.nvim_feedkeys(key, '', true)
