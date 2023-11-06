@@ -187,15 +187,18 @@ function M.get_lines_context(context)
     local fold_end = api.nvim_win_call(context.win_handle, function()
       return vim.fn.foldclosedend(lnr)
     end)
-    -- Skip folded lines
+    local line_ctx = {
+      line_row = lnr,
+      line = '',
+    }
     if fold_end == -1 then
-      lines[#lines + 1] = {
-        line_row = lnr,
-        line = api.nvim_buf_get_lines(context.buf_handle, lnr - 1, lnr, false)[1],
-      }
+      line_ctx.line = api.nvim_buf_get_lines(context.buf_handle, lnr - 1, lnr, false)[1]
     else
+      -- Skip folded lines
+      -- Let line = '' to take the first folded line as an empty line, where only the first column can move to
       lnr = fold_end
     end
+    lines[#lines + 1] = line_ctx
     lnr = lnr + 1
   end
 
