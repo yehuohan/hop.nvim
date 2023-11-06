@@ -21,10 +21,8 @@
 ---@class JumpContext
 ---@field win_ctx WindowContext
 ---@field line_ctx LineContext
+---@field direction HintDirection|nil This direction works only for the line_ctx
 ---@field regex Regex
----@field x_bias number
----@field direction HintDirection
----@field hint_position HintPosition
 
 local hint = require('hop.hint')
 local window = require('hop.window')
@@ -42,55 +40,53 @@ local function manh_dist(a, b, x_bias)
 end
 
 -- Mark the current line with jump targets.
---- @param ctx JumpContext
+---@param jctx JumpContext
+---@param opts Options
 ---@return JumpTarget[]
-local function mark_jump_targets_line(ctx)
+local function mark_jump_targets_line(jctx, opts)
+  local wctx = jctx.win_ctx
+  local lctx = jctx.line_ctx
+
   ---@type JumpTarget[]
   local jump_targets = {}
 
   ---@type WindowCell
-  local end_cell = vim.fn.strdisplaywidth(ctx.line_ctx.line)
-  if ctx.win_ctx.win_width ~= nil then
-    end_cell = ctx.win_ctx.col_offset + ctx.win_ctx.win_width
+  local end_cell = vim.fn.strdisplaywidth(lctx.line)
+  if wctx.win_width ~= nil then
+    end_cell = wctx.col_offset + wctx.win_width
   end
 
   -- Handle shifted_line with cell2char for multiple-bytes chars
   ---@type WindowChar
-  local left_idx = window.cell2char(ctx.line_ctx.line, ctx.win_ctx.col_offset)
+  local left_idx = window.cell2char(lctx.line, wctx.col_offset)
   ---@type WindowChar
-  local right_idx = window.cell2char(ctx.line_ctx.line, end_cell)
-  local shifted_line = vim.fn.strcharpart(ctx.line_ctx.line, left_idx, right_idx - left_idx)
+  local right_idx = window.cell2char(lctx.line, end_cell)
+  local shifted_line = vim.fn.strcharpart(lctx.line, left_idx, right_idx - left_idx)
   ---@type WindowCol
-  local col_bias = vim.fn.byteidx(ctx.line_ctx.line, left_idx)
+  local col_bias = vim.fn.byteidx(lctx.line, left_idx)
 
   -- We want to change the start offset so that we ignore everything before the cursor
-  if ctx.direction == hint.HintDirection.AFTER_CURSOR then
-    shifted_line = shifted_line:sub(1 + ctx.win_ctx.cursor.col - col_bias)
-    col_bias = ctx.win_ctx.cursor.col
+  if jctx.direction == hint.HintDirection.AFTER_CURSOR then
+    shifted_line = shifted_line:sub(1 + wctx.cursor.col - col_bias)
+    col_bias = wctx.cursor.col
     -- We want to change the end
-  elseif ctx.direction == hint.HintDirection.BEFORE_CURSOR then
-    shifted_line = shifted_line:sub(1, 1 + ctx.win_ctx.cursor.col - col_bias)
+  elseif jctx.direction == hint.HintDirection.BEFORE_CURSOR then
+    shifted_line = shifted_line:sub(1, 1 + wctx.cursor.col - col_bias)
   end
 
   -- No possible position to place target
-  if shifted_line == '' and ctx.win_ctx.col_offset > 0 then
+  if shifted_line == '' and wctx.col_offset > 0 then
     return jump_targets
   end
-
-  ---@type MatchContext
-  local match_context = {
-    col_first = ctx.win_ctx.col_first,
-    direction = ctx.direction,
-  }
 
   local col = 1 -- 1-based column for lua string
   while true do
     local s = shifted_line:sub(col)
     ---@type ColumnRange
-    local b, e = ctx.regex.match(s, match_context)
+    local b, e = jctx.regex.match(s, jctx, opts)
 
     -- match empty lines only in linewise regexes
-    if b == nil or ((b == 0 and e == 0) and not ctx.regex.linewise) then
+    if b == nil or ((b == 0 and e == 0) and not jctx.regex.linewise) then
       break
     end
     -- Preview need a length to highlight the matched string. Zero means nothing to highlight.
@@ -103,24 +99,24 @@ local function mark_jump_targets_line(ctx)
 
     ---@type WindowCol
     local colp = col + b
-    if ctx.hint_position == hint.HintPosition.MIDDLE then
+    if opts.hint_position == hint.HintPosition.MIDDLE then
       colp = col + math.floor((b + e) / 2)
-    elseif ctx.hint_position == hint.HintPosition.END then
+    elseif opts.hint_position == hint.HintPosition.END then
       colp = col + e - 1
     end
     colp = colp - 1 -- Convert 1-based lua string column to WindowCol
     jump_targets[#jump_targets + 1] = {
-      window = ctx.win_ctx.win_handle,
-      buffer = ctx.win_ctx.buf_handle,
+      window = wctx.win_handle,
+      buffer = wctx.buf_handle,
       cursor = {
-        row = ctx.line_ctx.line_row,
+        row = lctx.line_row,
         col = math.max(0, colp + col_bias),
       },
       length = math.max(0, matched_length),
     }
 
     -- do not search further if regex is oneshot or if there is nothing more to search
-    if ctx.regex.oneshot or s == '' then
+    if jctx.regex.oneshot or s == '' then
       break
     end
     col = col + e
@@ -135,20 +131,21 @@ end
 -- Create jump targets for a given indexed line.
 -- This function creates the jump targets for the current (indexed) line and appends them to the input list of jump
 -- targets `jump_targets`.
----@param ctx JumpContext
+---@param jctx JumpContext
 ---@param locations Locations used later to sort jump targets by score and create hints.
-local function create_jump_targets_for_line(ctx, locations)
+---@param opts Options
+local function create_jump_targets_for_line(jctx, locations, opts)
   -- first, create the jump targets for the ith line
-  local line_jump_targets = mark_jump_targets_line(ctx)
+  local line_jump_targets = mark_jump_targets_line(jctx, opts)
 
   -- then, append those to the input jump target list and create the indexed jump targets
-  local win_bias = math.abs(vim.api.nvim_get_current_win() - ctx.win_ctx.win_handle) * 1000
+  local win_bias = math.abs(vim.api.nvim_get_current_win() - jctx.win_ctx.win_handle) * 1000
   for _, jump_target in pairs(line_jump_targets) do
     locations.jump_targets[#locations.jump_targets + 1] = jump_target
 
     locations.indirect_jump_targets[#locations.indirect_jump_targets + 1] = {
       index = #locations.jump_targets,
-      score = manh_dist(ctx.win_ctx.cursor, jump_target.cursor, ctx.x_bias) + win_bias,
+      score = manh_dist(jctx.win_ctx.cursor, jump_target.cursor, opts.x_bias) + win_bias,
     }
   end
 end
@@ -182,46 +179,41 @@ function M.jump_targets_by_scanning_lines(regex)
       jump_targets = {},
       indirect_jump_targets = {},
     }
-    ---@type JumpContext
-    local jump_context = {
-      regex = regex,
-      x_bias = opts.x_bias,
-      hint_position = opts.hint_position,
-    }
 
     -- Iterate all window contexts
     for _, wctx in ipairs(all_ctxs) do
       -- Get all lines' context
       window.clip_window_context(wctx, opts)
-      jump_context.win_ctx = wctx
       local lines = window.get_lines_context(wctx)
 
+      ---@type JumpContext
+      local jump_context = { win_ctx = wctx, direction = nil, regex = regex }
       -- In the case of a direction, we want to treat the first or last line (according to the direction) differently
       if opts.direction == hint.HintDirection.AFTER_CURSOR then
         -- The first line is to be checked first
         if not jump_context.regex.linewise then
           jump_context.direction = opts.direction
           jump_context.line_ctx = lines[1]
-          create_jump_targets_for_line(jump_context, locations)
+          create_jump_targets_for_line(jump_context, locations, opts)
         end
 
         jump_context.direction = nil
         for i = 2, #lines do
           jump_context.line_ctx = lines[i]
-          create_jump_targets_for_line(jump_context, locations)
+          create_jump_targets_for_line(jump_context, locations, opts)
         end
       elseif opts.direction == hint.HintDirection.BEFORE_CURSOR then
         -- The last line is to be checked last
         jump_context.direction = nil
         for i = 1, #lines - 1 do
           jump_context.line_ctx = lines[i]
-          create_jump_targets_for_line(jump_context, locations)
+          create_jump_targets_for_line(jump_context, locations, opts)
         end
 
         if not jump_context.regex.linewise then
           jump_context.direction = opts.direction
           jump_context.line_ctx = lines[#lines]
-          create_jump_targets_for_line(jump_context, locations)
+          create_jump_targets_for_line(jump_context, locations, opts)
         end
       else
         jump_context.direction = nil
@@ -232,7 +224,7 @@ function M.jump_targets_by_scanning_lines(regex)
             and jump_context.win_ctx.cursor.row == lines[i].line_row
           if not check then
             jump_context.line_ctx = lines[i]
-            create_jump_targets_for_line(jump_context, locations)
+            create_jump_targets_for_line(jump_context, locations, opts)
           end
         end
       end
@@ -262,11 +254,9 @@ function M.jump_targets_for_current_line(regex)
     create_jump_targets_for_line({
       win_ctx = wctx,
       line_ctx = { line_row = line_row, line = line },
-      regex = regex,
-      x_bias = opts.x_bias,
       direction = opts.direction,
-      hint_position = opts.hint_position,
-    }, locations)
+      regex = regex,
+    }, locations, opts)
 
     M.sort_indirect_jump_targets(locations.indirect_jump_targets, opts)
 
@@ -290,7 +280,8 @@ function M.sort_indirect_jump_targets(indirect_jump_targets, opts)
   table.sort(indirect_jump_targets, score_comparison)
 end
 
----Apply an offset on jump target
+-- Apply an offset on jump target
+-- Always offset in cell first, then in line
 ---@param jt JumpTarget
 ---@param offset_cell WindowCell|nil
 ---@param offset_row WindowRow|nil
