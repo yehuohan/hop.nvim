@@ -1,11 +1,7 @@
 ---@class Regex
 ---@field oneshot boolean
 ---@field linewise boolean Determines if regex considers whole lines
----@field match fun(s:string, mctx:MatchContext):ColumnRange Get column range within the line string
-
----@class MatchContext Match
----@field col_first number WindowContext.col_first
----@field direction HintDirection
+---@field match fun(s:string, jctx:JumpContext, opts:Options):ColumnRange Get column range within the line string
 
 ---@class JumpRegexModule
 local M = {}
@@ -91,7 +87,7 @@ function M.regex_by_word_start()
   return regex_by_searching('\\k\\+')
 end
 
--- Camel case regex
+-- Camel case regex.
 ---@return Regex
 function M.regex_by_camel_case()
   local camel = '\\u\\l\\+'
@@ -123,7 +119,7 @@ function M.by_line_start()
   return {
     oneshot = true,
     linewise = true,
-    match = function(s)
+    match = function()
       return 0, 1
     end,
   }
@@ -136,12 +132,12 @@ function M.regex_by_vertical()
     oneshot = true,
     linewise = true,
     ---@param s string
-    ---@param mctx MatchContext
-    match = function(s, mctx)
-      if mctx.direction == hint.HintDirection.AFTER_CURSOR then
+    ---@param jctx JumpContext
+    match = function(s, jctx)
+      if jctx.direction == hint.HintDirection.AFTER_CURSOR then
         return 0, 1
       end
-      local idx = window.cell2char(s, mctx.col_first)
+      local idx = window.cell2char(s, jctx.win_ctx.col_first)
       local col = vim.fn.byteidx(s, idx)
       if -1 < col and col < #s then
         return col, col + 1
