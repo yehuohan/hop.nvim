@@ -1,6 +1,5 @@
 ---@alias WindowRow integer 1-based line row at window
 ---@alias WindowCol integer 0-based column at window, also as string byte index
----@alias WindowColRange WindowCol[] window column range with [start-inclusive, end-exclusive)
 ---@alias WindowCell integer 0-based displayed cell column at window; often computed via `strdisplaywidth()`
 ---@alias WindowChar integer 0-based character index at string
 -- For multi-byte character, there may be WindowCol ~= WindowCell ~= WindowChar like below showed
@@ -10,7 +9,7 @@
 -- WindowChar:   0 1    2
 --
 -- Infos for some neovim api:
--- * 1-based line, 0-based-column: nvim_win_get_cursor, nvim_win_set_cursor
+-- * 1-based line, 0-based column: nvim_win_get_cursor, nvim_win_set_cursor
 -- * 0-based line, end-exclusive: nvim_buf_get_lines
 -- * 0-based line, end-inclusive; 0-based column, end-exclusive: nvim_buf_set_extmark
 -- * 1-based line: foldclosedend
@@ -21,9 +20,8 @@
 ---@field row WindowRow
 ---@field col WindowCol
 
----@class LineRange
----@field top WindowRow inclusive
----@field bot WindowRow inclusive
+---@alias LineRange WindowRow[] Line range with [top-inclusive, bottom-inclusive]
+---@alias ColumnRange WindowCol[] Column range with [left-inclusive, right-exclusive)
 
 ---@class LineContext
 ---@field line_row WindowRow
@@ -34,6 +32,7 @@
 ---@field buf_handle integer
 ---@field cursor CursorPos
 ---@field line_range LineRange
+---@field column_range ColumnRange Left-column for top-line and right-column for bottom-line
 ---@field win_width WindowCell Window cell width excluding fold, sign and number columns
 ---@field col_offset WindowCell First cell column displayed (also is the cell number hidden to window left)
 ---@field col_first WindowCell Cursor cell column relative to the first cell column displayed
@@ -57,6 +56,18 @@ end
 ---@param pos CursorPos
 function M.pos2extmark(pos)
   return pos.row - 1, pos.col
+end
+
+-- Convert LineRange to start and end row for extmark
+---@param range LineRange
+function M.line_range2extmark(range)
+  return range[1] - 1, range[2] - 1
+end
+
+-- Convert ColumnRange to start and end column for extmark
+---@param range ColumnRange
+function M.column_range2extmark(range)
+  return range[1], range[2]
 end
 
 -- Get the character index at the window column
@@ -106,6 +117,9 @@ local function window_context(win_handle, buf_handle)
   local cursor_pos = api.nvim_win_get_cursor(win_handle)
   local cursor = { row = cursor_pos[1], col = cursor_pos[2] }
 
+  local bottom_line = api.nvim_buf_get_lines(buf_handle, win_info.botline - 1, win_info.botline, false)[1]
+  local right_column = string.len(bottom_line)
+
   local win_width = nil
   if not vim.wo.wrap then
     --number of columns occupied by any	'foldcolumn', 'signcolumn' and line number in front of the text
@@ -119,17 +133,18 @@ local function window_context(win_handle, buf_handle)
     win_handle = win_handle,
     buf_handle = buf_handle,
     cursor = cursor,
-    line_range = { top = win_info.topline, bot = win_info.botline },
+    line_range = { win_info.topline, win_info.botline },
+    column_range = { 0, right_column },
     win_width = win_width,
     col_offset = win_view.leftcol,
     col_first = col_first,
   }
 end
 
--- Get current window context or all visible windows context in multiwindow mode
+-- Get all windows context
 ---@param opts Options
 ---@return WindowContext[]
-function M.get_window_context(opts)
+function M.get_windows_context(opts)
   ---@type WindowContext[]
   local contexts = {}
 
@@ -167,8 +182,8 @@ function M.get_lines_context(context)
   ---@type LineContext[]
   local lines = {}
 
-  local lnr = context.line_range.top
-  while lnr <= context.line_range.bot do
+  local lnr = context.line_range[1]
+  while lnr <= context.line_range[2] do
     local fold_end = api.nvim_win_call(context.win_handle, function()
       return vim.fn.foldclosedend(lnr)
     end)
@@ -187,15 +202,28 @@ function M.get_lines_context(context)
   return lines
 end
 
--- Clip the window context based on the direction.
+-- Clip the window context area
 ---@param context WindowContext
----@param direction HintDirection
-function M.clip_window_context(context, direction)
+---@param opts Options
+function M.clip_window_context(context, opts)
   local hint = require('hop.hint')
-  if direction == hint.HintDirection.BEFORE_CURSOR then
-    context.line_range.bot = context.cursor.row
-  elseif direction == hint.HintDirection.AFTER_CURSOR then
-    context.line_range.top = context.cursor.row
+
+  if opts.current_line_only then
+    local row = context.cursor.row
+    context.line_range[1] = row
+    context.line_range[2] = row
+    local bottom_line = api.nvim_buf_get_lines(context.buf_handle, row - 1, row, false)[1]
+    local right_column = string.len(bottom_line)
+    context.column_range[1] = 0
+    context.column_range[2] = right_column
+  end
+
+  if opts.direction == hint.HintDirection.BEFORE_CURSOR then
+    context.line_range[2] = context.cursor.row
+    context.column_range[2] = context.cursor.col
+  elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
+    context.line_range[1] = context.cursor.row
+    context.column_range[1] = context.cursor.col
   end
 end
 

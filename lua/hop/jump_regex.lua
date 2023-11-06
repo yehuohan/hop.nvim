@@ -1,7 +1,7 @@
 ---@class Regex
 ---@field oneshot boolean
 ---@field linewise boolean Determines if regex considers whole lines
----@field match fun(s:string, mctx:MatchContext):WindowColRange Get JumpTarget column range within the line sting
+---@field match fun(s:string, mctx:MatchContext):ColumnRange Get column range within the line string
 
 ---@class MatchContext Match
 ---@field col_first number WindowContext.col_first

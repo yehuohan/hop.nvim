@@ -86,7 +86,7 @@ local function mark_jump_targets_line(ctx)
   local col = 1 -- 1-based column for lua string
   while true do
     local s = shifted_line:sub(col)
-    ---@type WindowColRange
+    ---@type ColumnRange
     local b, e = ctx.regex.match(s, match_context)
 
     -- match empty lines only in linewise regexes
@@ -175,7 +175,7 @@ function M.jump_targets_by_scanning_lines(regex)
   ---@return Locations
   return function(opts)
     -- Get the window context; this is used to know which part of the visible buffer is to hint
-    local all_ctxs = window.get_window_context(opts)
+    local all_ctxs = window.get_windows_context(opts)
 
     ---@type Locations
     local locations = {
@@ -192,7 +192,7 @@ function M.jump_targets_by_scanning_lines(regex)
     -- Iterate all window contexts
     for _, wctx in ipairs(all_ctxs) do
       -- Get all lines' context
-      window.clip_window_context(wctx, opts.direction)
+      window.clip_window_context(wctx, opts)
       jump_context.win_ctx = wctx
       local lines = window.get_lines_context(wctx)
 
@@ -251,7 +251,7 @@ function M.jump_targets_for_current_line(regex)
   ---@param opts Options
   ---@return Locations
   return function(opts)
-    local wctx = window.get_window_context(opts)[1]
+    local wctx = window.get_windows_context(opts)[1]
     local line_row = wctx.cursor.row
     local line = vim.api.nvim_buf_get_lines(wctx.buf_handle, line_row - 1, line_row, false)[1]
     local locations = {

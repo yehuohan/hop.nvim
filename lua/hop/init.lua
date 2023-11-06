@@ -54,68 +54,6 @@ local function clear_namespace(buf_list, hl_ns)
   end
 end
 
--- Set the highlight of unmatched lines of the buffer.
----@param hl_ns number highlight namespace.
----@param wctx WindowContext
----@param opts Options
-local function set_unmatched_lines(hl_ns, wctx, opts)
-  local hint = require('hop.hint')
-  local window = require('hop.window')
-
-  local line = api.nvim_buf_get_lines(0, wctx.cursor.row - 1, wctx.cursor.row, false)
-  if line[1] and #line[1] == 0 then
-    if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-      wctx.cursor.col = 0
-    elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-      wctx.cursor.col = -1
-    end
-  end
-
-  local start_line = wctx.line_range.top
-  local end_line = wctx.line_range.bot
-
-  if opts.current_line_only then
-    start_line = wctx.cursor.row
-    end_line = wctx.cursor.row
-  end
-
-  start_line = window.row2extmark(start_line)
-
-  local start_col = 0
-  local end_col = nil
-  if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-    end_col = wctx.cursor.col
-  elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-    start_col = wctx.cursor.col + 1
-  end
-
-  api.nvim_buf_set_extmark(wctx.buf_handle, hl_ns, start_line, start_col, {
-    end_line = end_line,
-    end_col = end_col,
-    hl_group = 'HopUnmatched',
-    hl_eol = true,
-    priority = hint.HintPriority.DIM,
-  })
-end
-
--- Dim everything out to prepare the Hop session for all windows.
----@param hint_state HintState
----@param opts Options
-local function apply_dimming(hint_state, opts)
-  if not opts.dim_unmatched then
-    return
-  end
-
-  for _, wctx in ipairs(hint_state.all_ctxs) do
-    -- Dim everything out, add the virtual cursor and hide diagnostics
-    set_unmatched_lines(hint_state.dim_ns, wctx, opts)
-
-    for ns in pairs(hint_state.diag_ns) do
-      vim.diagnostic.show(ns, wctx.buf_handle, nil, { virtual_text = false })
-    end
-  end
-end
-
 -- Add the virtual cursor, taking care to handle the cases where:
 -- - the virtualedit option is being used and the cursor is in a
 --   tab character or past the end of the line
@@ -149,6 +87,39 @@ local function add_virt_cur(ns)
   end
 end
 
+-- Dim everything out to prepare the hop session for all windows
+---@param hint_state HintState
+---@param opts Options
+local function apply_dimming(hint_state, opts)
+  local hint = require('hop.hint')
+  local window = require('hop.window')
+
+  if not opts.dim_unmatched then
+    return
+  end
+
+  for _, wctx in ipairs(hint_state.all_ctxs) do
+    -- Set the highlight of unmatched lines of the buffer.
+    local start_line, end_line = window.line_range2extmark(wctx.line_range)
+    local start_col, end_col = window.column_range2extmark(wctx.column_range)
+    api.nvim_buf_set_extmark(wctx.buf_handle, hint_state.dim_ns, start_line, start_col, {
+      end_line = end_line,
+      end_col = end_col,
+      hl_group = 'HopUnmatched',
+      hl_eol = true,
+      priority = hint.HintPriority.DIM,
+    })
+
+    -- Hide diagnostics
+    for ns in pairs(hint_state.diag_ns) do
+      vim.diagnostic.show(ns, wctx.buf_handle, nil, { virtual_text = false })
+    end
+  end
+
+  -- Add the virtual cursor
+  add_virt_cur(hint_state.hl_ns)
+end
+
 -- Get pattern from input for hint and preview
 ---@param prompt string
 ---@param maxchar number|nil
@@ -164,7 +135,6 @@ function M.get_input_pattern(prompt, maxchar, opts)
     hs = hint.create_hint_state(opts)
     hs.preview_ns = api.nvim_create_namespace('hop_preview')
     apply_dimming(hs, opts)
-    add_virt_cur(hs.hl_ns)
   end
 
   local K_Esc = api.nvim_replace_termcodes('<Esc>', true, false, true)
@@ -317,9 +287,7 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
   -- we have at least two targets, so generate hints to display
   hs.hints = hint.create_hints(generated.jump_targets, generated.indirect_jump_targets, opts)
 
-  -- dim everything out, add the virtual cursor and hide diagnostics
   apply_dimming(hs, opts)
-  add_virt_cur(hs.hl_ns)
   hint.set_hint_extmarks(hs.hl_ns, hs.hints, opts)
   vim.cmd.redraw()
 

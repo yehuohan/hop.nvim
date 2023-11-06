@@ -131,7 +131,7 @@ function M.create_hint_state(opts)
   ---@type HintState
   local hint_state = {}
 
-  hint_state.all_ctxs = window.get_window_context(opts)
+  hint_state.all_ctxs = window.get_windows_context(opts)
   hint_state.buf_list = {}
   local buf_sets = {}
   for _, wctx in ipairs(hint_state.all_ctxs) do
@@ -140,7 +140,7 @@ function M.create_hint_state(opts)
       hint_state.buf_list[#hint_state.buf_list + 1] = wctx.buf_handle
     end
     -- Ensure all window contexts are cliped for hint state
-    window.clip_window_context(wctx, opts.direction)
+    window.clip_window_context(wctx, opts)
   end
 
   -- Create the highlight groups; the highlight groups will allow us to clean everything at once when Hop quits
