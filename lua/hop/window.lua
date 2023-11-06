@@ -211,12 +211,13 @@ end
 function M.clip_window_context(context, opts)
   local hint = require('hop.hint')
 
+  local row = context.cursor.row
+  local line = api.nvim_buf_get_lines(context.buf_handle, row - 1, row, false)[1]
+
   if opts.current_line_only then
-    local row = context.cursor.row
+    local right_column = string.len(line)
     context.line_range[1] = row
     context.line_range[2] = row
-    local bottom_line = api.nvim_buf_get_lines(context.buf_handle, row - 1, row, false)[1]
-    local right_column = string.len(bottom_line)
     context.column_range[1] = 0
     context.column_range[2] = right_column
   end
@@ -224,6 +225,11 @@ function M.clip_window_context(context, opts)
   if opts.direction == hint.HintDirection.BEFORE_CURSOR then
     context.line_range[2] = context.cursor.row
     context.column_range[2] = context.cursor.col
+
+    -- For non-empty lines we have to increment it so we include the cursor
+    if #line > 0 then
+      context.column_range[2] = context.cursor.col + 1
+    end
   elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
     context.line_range[1] = context.cursor.row
     context.column_range[1] = context.cursor.col
