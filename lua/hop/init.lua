@@ -154,7 +154,7 @@ function M.get_input_pattern(prompt, maxchar, opts)
       clear_namespace(hs.buf_list, hs.preview_ns)
       local ok, re = pcall(jump_regex.regex_by_case_searching, pat, false, opts)
       if ok then
-        local jump_target_gtr = jump_target.jump_targets_by_scanning_lines(re)
+        local jump_target_gtr = jump_target.jump_target_generator(re, hs.all_ctxs)
         local generated = jump_target_gtr(opts)
         hint.set_hint_preview(hs.preview_ns, generated.jump_targets)
       end
@@ -223,7 +223,7 @@ function M.move_cursor_to(jt, opts)
   api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col })
 end
 
----@param jump_target_gtr fun(opts:Options):Locations
+---@param jump_target_gtr Generator
 ---@param opts Options
 function M.hint_with(jump_target_gtr, opts)
   M.hint_with_callback(jump_target_gtr, opts, function(jt)
@@ -237,12 +237,9 @@ end
 function M.hint_with_regex(regex, opts, callback)
   local jump_target = require('hop.jump_target')
 
-  local generator = jump_target.jump_targets_by_scanning_lines
-  if opts.current_line_only then
-    generator = jump_target.jump_targets_for_current_line
-  end
+  local jump_target_gtr = jump_target.jump_target_generator(regex)
 
-  M.hint_with_callback(generator(regex), opts, callback or function(jt)
+  M.hint_with_callback(jump_target_gtr, opts, callback or function(jt)
     M.move_cursor_to(jt, opts)
   end)
 end
@@ -262,7 +259,7 @@ function M.hint_with_callback(jump_target_gtr, opts, callback)
   local hs = hint.create_hint_state(opts)
 
   -- create jump targets
-  local generated = jump_target_gtr(opts)
+  local generated = jump_target_gtr(opts, hs.all_ctxs)
   local jump_target_count = #generated.jump_targets
 
   local target_idx = nil
