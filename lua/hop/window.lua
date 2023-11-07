@@ -24,8 +24,9 @@
 ---@alias ColumnRange WindowCol[] Column range with [left-inclusive, right-exclusive)
 
 ---@class LineContext
----@field line_row WindowRow
+---@field row WindowRow
 ---@field line string
+---@field col_bias WindowCol Bias column of the left clipped line
 
 ---@class WindowContext
 ---@field win_handle integer
@@ -176,23 +177,25 @@ function M.get_windows_context(opts)
 end
 
 -- Collect visible and unfold lines of window context
----@param context WindowContext
+---@param win_ctx WindowContext
 ---@return LineContext[]
-function M.get_lines_context(context)
+function M.get_lines_context(win_ctx)
   ---@type LineContext[]
   local lines = {}
 
-  local lnr = context.line_range[1]
-  while lnr <= context.line_range[2] do
-    local fold_end = api.nvim_win_call(context.win_handle, function()
+  local lnr = win_ctx.line_range[1]
+  while lnr <= win_ctx.line_range[2] do
+    local fold_end = api.nvim_win_call(win_ctx.win_handle, function()
       return vim.fn.foldclosedend(lnr)
     end)
+    ---@type LineContext
     local line_ctx = {
-      line_row = lnr,
+      row = lnr,
       line = '',
+      col_bias = 0,
     }
     if fold_end == -1 then
-      line_ctx.line = api.nvim_buf_get_lines(context.buf_handle, lnr - 1, lnr, false)[1]
+      line_ctx.line = api.nvim_buf_get_lines(win_ctx.buf_handle, lnr - 1, lnr, false)[1]
     else
       -- Skip folded lines
       -- Let line = '' to take the first folded line as an empty line, where only the first column can move to
@@ -205,35 +208,87 @@ function M.get_lines_context(context)
   return lines
 end
 
+---@param win_ctx WindowContext
+function M.is_active_window(win_ctx)
+  return win_ctx.win_handle == vim.api.nvim_get_current_win()
+end
+
+---@param win_ctx WindowContext
+---@param line_ctx LineContext
+function M.is_cursor_line(win_ctx, line_ctx)
+  return win_ctx.cursor.row == line_ctx.row
+end
+
+---@param win_ctx WindowContext
+---@param line_ctx LineContext
+function M.is_active_line(win_ctx, line_ctx)
+  return win_ctx.win_handle == vim.api.nvim_get_current_win() and win_ctx.cursor.row == line_ctx.row
+end
+
 -- Clip the window context area
----@param context WindowContext
+---@param win_ctx WindowContext
 ---@param opts Options
-function M.clip_window_context(context, opts)
+function M.clip_window_context(win_ctx, opts)
   local hint = require('hop.hint')
 
-  local row = context.cursor.row
-  local line = api.nvim_buf_get_lines(context.buf_handle, row - 1, row, false)[1]
+  local row = win_ctx.cursor.row
+  local line = api.nvim_buf_get_lines(win_ctx.buf_handle, row - 1, row, false)[1]
 
   if opts.current_line_only then
     local right_column = string.len(line)
-    context.line_range[1] = row
-    context.line_range[2] = row
-    context.column_range[1] = 0
-    context.column_range[2] = right_column
+    win_ctx.line_range[1] = row
+    win_ctx.line_range[2] = row
+    win_ctx.column_range[1] = 0
+    win_ctx.column_range[2] = right_column
   end
 
   if opts.direction == hint.HintDirection.BEFORE_CURSOR then
-    context.line_range[2] = context.cursor.row
-    context.column_range[2] = context.cursor.col
+    win_ctx.line_range[2] = win_ctx.cursor.row
+    win_ctx.column_range[2] = win_ctx.cursor.col
 
     -- For non-empty lines we have to increment it so we include the cursor
     if #line > 0 then
-      context.column_range[2] = context.cursor.col + 1
+      win_ctx.column_range[2] = win_ctx.cursor.col + 1
     end
   elseif opts.direction == hint.HintDirection.AFTER_CURSOR then
-    context.line_range[1] = context.cursor.row
-    context.column_range[1] = context.cursor.col
+    win_ctx.line_range[1] = win_ctx.cursor.row
+    win_ctx.column_range[1] = win_ctx.cursor.col
   end
+end
+
+-- Clip line context within window
+---@param line_ctx LineContext
+---@param win_ctx WindowContext
+---@param opts Options
+function M.clip_line_context(win_ctx, line_ctx, opts)
+  local hint = require('hop.hint')
+
+  ---@type WindowCell
+  local end_cell = vim.fn.strdisplaywidth(line_ctx.line)
+  if win_ctx.win_width ~= nil then
+    end_cell = win_ctx.col_offset + win_ctx.win_width
+  end
+
+  -- Handle shifted_line with cell2char for multiple-bytes chars
+  ---@type WindowChar
+  local left_idx = M.cell2char(line_ctx.line, win_ctx.col_offset)
+  ---@type WindowChar
+  local right_idx = M.cell2char(line_ctx.line, end_cell)
+  local shifted_line = vim.fn.strcharpart(line_ctx.line, left_idx, right_idx - left_idx)
+  ---@type WindowCol
+  local col_bias = vim.fn.byteidx(line_ctx.line, left_idx)
+
+  if line_ctx.row == win_ctx.cursor.row then
+    if opts.direction == hint.HintDirection.AFTER_CURSOR then
+      shifted_line = shifted_line:sub(1 + win_ctx.cursor.col - col_bias)
+      col_bias = win_ctx.cursor.col
+    elseif opts.direction == hint.HintDirection.BEFORE_CURSOR then
+      shifted_line = shifted_line:sub(1, 1 + win_ctx.cursor.col - col_bias)
+    end
+  end
+
+  line_ctx.line = shifted_line
+  line_ctx.col_bias = col_bias
 end
 
 return M

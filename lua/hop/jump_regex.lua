@@ -1,6 +1,5 @@
 ---@class Regex
 ---@field oneshot boolean
----@field linewise boolean Determines if regex considers whole lines
 ---@field match fun(s:string, jctx:JumpContext, opts:Options):ColumnRange Get column range within the line string
 
 ---@class JumpRegexModule
@@ -118,8 +117,11 @@ end
 function M.by_line_start()
   return {
     oneshot = true,
-    linewise = true,
-    match = function()
+    ---@param jctx JumpContext
+    match = function(_, jctx)
+      if window.is_active_line(jctx.win_ctx, jctx.line_ctx) then
+        return
+      end
       return 0, 1
     end,
   }
@@ -130,12 +132,15 @@ end
 function M.regex_by_vertical()
   return {
     oneshot = true,
-    linewise = true,
-    ---@param s string
     ---@param jctx JumpContext
-    match = function(s, jctx)
-      if jctx.direction == hint.HintDirection.AFTER_CURSOR then
-        return 0, 1
+    match = function(s, jctx, opts)
+      if window.is_cursor_line(jctx.win_ctx, jctx.line_ctx) then
+        if window.is_active_window(jctx.win_ctx) then
+          return
+        end
+        if opts.direction == hint.HintDirection.AFTER_CURSOR then
+          return 0, 1
+        end
       end
       local idx = window.cell2char(s, jctx.win_ctx.col_first)
       local col = vim.fn.byteidx(s, idx)
@@ -155,8 +160,11 @@ function M.regex_by_line_start_skip_whitespace()
 
   return {
     oneshot = true,
-    linewise = true,
-    match = function(s)
+    ---@param jctx JumpContext
+    match = function(s, jctx)
+      if window.is_active_line(jctx.win_ctx, jctx.line_ctx) then
+        return
+      end
       return regex:match_str(s)
     end,
   }
