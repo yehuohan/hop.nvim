@@ -1,3 +1,4 @@
+-- Match jump target and return jump range within line
 ---@class Regex
 ---@field oneshot boolean
 ---@field match fun(s:string, jctx:JumpContext, opts:Options):ColumnRange Get column range within the line string

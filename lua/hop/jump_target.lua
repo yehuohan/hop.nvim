@@ -1,3 +1,6 @@
+-- Generate jump locations within windows according to hop options
+---@alias Generator fun(opts:Options):Locations
+
 -- Jump targets are locations in buffers where users might jump to. They are wrapped in a table and provide the
 -- required information so that Hop can associate label and display the hints.
 ---@class Locations
@@ -38,17 +41,16 @@ local function manh_dist(a, b, x_bias)
   return (x_bias * math.abs(b.row - a.row)) + math.abs(b.col - a.col)
 end
 
--- Mark the current line with jump targets.
----@param jctx JumpContext
+-- Create jump targets within line
+---@param jump_ctx JumpContext
 ---@param opts Options
 ---@return JumpTarget[]
-local function mark_jump_targets_line(jctx, opts)
-  local wctx = jctx.win_ctx
-  local lctx = jctx.line_ctx
+local function create_line_jump_targets(jump_ctx, opts)
+  local wctx = jump_ctx.win_ctx
+  local lctx = jump_ctx.line_ctx
 
   ---@type JumpTarget[]
   local jump_targets = {}
-  window.clip_line_context(wctx, lctx, opts)
 
   -- No possible position to place target
   if lctx.line == '' and wctx.col_offset > 0 then
@@ -59,7 +61,7 @@ local function mark_jump_targets_line(jctx, opts)
   while true do
     local s = lctx.line:sub(idx)
     ---@type ColumnRange
-    local b, e = jctx.regex.match(s, jctx, opts)
+    local b, e = jump_ctx.regex.match(s, jump_ctx, opts)
     if b == nil then
       break
     end
@@ -91,7 +93,7 @@ local function mark_jump_targets_line(jctx, opts)
     idx = idx + e
 
     -- Do not search further if regex is oneshot or if there is nothing more to search
-    if idx > #lctx.line or s == '' or jctx.regex.oneshot then
+    if idx > #lctx.line or s == '' or jump_ctx.regex.oneshot then
       break
     end
   end
@@ -99,102 +101,23 @@ local function mark_jump_targets_line(jctx, opts)
   return jump_targets
 end
 
--- Create jump targets for a given indexed line.
--- This function creates the jump targets for the current (indexed) line and appends them to the input list of jump
--- targets `jump_targets`.
----@param jctx JumpContext
+-- Create indirect jump targets within line
+---@param jump_ctx JumpContext
 ---@param locations Locations used later to sort jump targets by score and create hints.
 ---@param opts Options
-local function create_jump_targets_for_line(jctx, locations, opts)
-  -- first, create the jump targets for the ith line
-  local line_jump_targets = mark_jump_targets_line(jctx, opts)
+local function create_line_indirect_jump_targets(jump_ctx, locations, opts)
+  -- First, create the jump targets for the ith line
+  local line_jump_targets = create_line_jump_targets(jump_ctx, opts)
 
   -- then, append those to the input jump target list and create the indexed jump targets
-  local win_bias = math.abs(vim.api.nvim_get_current_win() - jctx.win_ctx.win_handle) * 1000
+  local win_bias = math.abs(vim.api.nvim_get_current_win() - jump_ctx.win_ctx.win_handle) * 1000
   for _, jump_target in pairs(line_jump_targets) do
     locations.jump_targets[#locations.jump_targets + 1] = jump_target
 
     locations.indirect_jump_targets[#locations.indirect_jump_targets + 1] = {
       index = #locations.jump_targets,
-      score = manh_dist(jctx.win_ctx.cursor, jump_target.cursor, opts.x_bias) + win_bias,
+      score = manh_dist(jump_ctx.win_ctx.cursor, jump_target.cursor, opts.x_bias) + win_bias,
     }
-  end
-end
-
--- Create jump targets by scanning lines in the currently visible buffer.
---
--- This function takes a regex argument, which is an object containing a match function that must return the span
--- (inclusive beginning, exclusive end) of the match item, or nil when no more match is possible. This object also
--- contains the `oneshot` field, a boolean stating whether only the first match of a line should be taken into account.
---
--- This function returns the lined jump targets (an array of N lines, where N is the number of currently visible lines).
--- Lines without jump targets are assigned an empty table ({}). For lines with jump targets, a list-table contains the
--- jump targets as pair of { line, col }.
---
--- In addition the jump targets, this function returns the total number of jump targets (i.e. this is the same thing as
--- traversing the lined jump targets and summing the number of jump targets for all lines) as a courtesy, plus «
--- indirect jump targets. » Indirect jump targets are encoded as a flat list-table containing three values: i, for the
--- ith line, j, for the rank of the jump target, and dist, the score distance of the associated jump target. This list
--- is sorted according to that last dist parameter in order to know how to distribute the jump targets over the buffer.
----@param regex Regex
----@return fun(opts:Options):Locations
-function M.jump_targets_by_scanning_lines(regex)
-  ---@param opts Options
-  ---@return Locations
-  return function(opts)
-    -- Get the window context; this is used to know which part of the visible buffer is to hint
-    local all_ctxs = window.get_windows_context(opts)
-
-    ---@type Locations
-    local locations = {
-      jump_targets = {},
-      indirect_jump_targets = {},
-    }
-
-    -- Iterate all window contexts
-    for _, wctx in ipairs(all_ctxs) do
-      -- Get all lines' context
-      window.clip_window_context(wctx, opts)
-      local lines = window.get_lines_context(wctx)
-      for i = 1, #lines do
-        create_jump_targets_for_line({
-          win_ctx = wctx,
-          line_ctx = lines[i],
-          regex = regex,
-        }, locations, opts)
-      end
-    end
-
-    M.sort_indirect_jump_targets(locations.indirect_jump_targets, opts)
-
-    return locations
-  end
-end
-
--- Jump target generator for regex applied only on the cursor line.
----@param regex Regex
----@return fun(opts:Options):Locations
-function M.jump_targets_for_current_line(regex)
-  ---@param opts Options
-  ---@return Locations
-  return function(opts)
-    local wctx = window.get_windows_context(opts)[1]
-    local line_row = wctx.cursor.row
-    local line = vim.api.nvim_buf_get_lines(wctx.buf_handle, line_row - 1, line_row, false)[1]
-    local locations = {
-      jump_targets = {},
-      indirect_jump_targets = {},
-    }
-
-    create_jump_targets_for_line({
-      win_ctx = wctx,
-      line_ctx = { row = line_row, line = line, col_bias = 0 },
-      regex = regex,
-    }, locations, opts)
-
-    M.sort_indirect_jump_targets(locations.indirect_jump_targets, opts)
-
-    return locations
   end
 end
 
@@ -247,6 +170,58 @@ function M.move_jump_target(jt, offset_row, offset_cell)
       new_cell = 0
     end
     jt.cursor.col = vim.fn.byteidx(line, window.cell2char(line, new_cell))
+  end
+end
+
+-- Create jump targets by scanning windows and lines
+--
+-- This function takes a regex argument, which is an object containing a match function that must return the span
+-- (inclusive beginning, exclusive end) of the match item, or nil when no more match is possible. This object also
+-- contains the `oneshot` field, a boolean stating whether only the first match of a line should be taken into account.
+--
+-- This function returns the lined jump targets (an array of N lines, where N is the number of currently visible lines).
+-- Lines without jump targets are assigned an empty table ({}). For lines with jump targets, a list-table contains the
+-- jump targets as pair of { line, col }.
+--
+-- This function returns the total number of jump targets (i.e. this is the same thing as
+-- traversing the lined jump targets and summing the number of jump targets for all lines) as a courtesy, plus «
+-- indirect jump targets. » Indirect jump targets are encoded as a flat list-table containing three values: i, for the
+-- ith line, j, for the rank of the jump target, and dist, the score distance of the associated jump target. This list
+-- is sorted according to that last dist parameter in order to know how to distribute the jump targets over the buffer.
+---@param regex Regex
+---@param win_ctxs WindowContext[]|nil
+---@return Generator
+function M.jump_target_generator(regex, win_ctxs)
+  ---@type Generator
+  return function(opts)
+    local all_win_ctxs = win_ctxs or window.get_windows_context(opts)
+    if opts.current_line_only then
+      all_win_ctxs = { all_win_ctxs[1] }
+    end
+
+    ---@type Locations
+    local locations = {
+      jump_targets = {},
+      indirect_jump_targets = {},
+    }
+
+    -- Iterate all window then line contexts
+    for _, wctx in ipairs(all_win_ctxs) do
+      window.clip_window_context(wctx, opts)
+
+      local all_line_ctxs = window.get_lines_context(wctx)
+      for _, lctx in ipairs(all_line_ctxs) do
+        window.clip_line_context(wctx, lctx, opts)
+
+        ---@type JumpContext
+        local jump_ctx = { win_ctx = wctx, line_ctx = lctx, regex = regex }
+        create_line_indirect_jump_targets(jump_ctx, locations, opts)
+      end
+    end
+
+    M.sort_indirect_jump_targets(locations.indirect_jump_targets, opts)
+
+    return locations
   end
 end
 

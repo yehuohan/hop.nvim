@@ -1,3 +1,4 @@
+-- Provide windows and lines to jump where you want
 ---@alias WindowRow integer 1-based line row at window
 ---@alias WindowCol integer 0-based column at window, also as string byte index
 ---@alias WindowCell integer 0-based displayed cell column at window; often computed via `strdisplaywidth()`
@@ -144,7 +145,7 @@ end
 
 -- Get all windows context
 ---@param opts Options
----@return WindowContext[]
+---@return WindowContext[] The first is always current window
 function M.get_windows_context(opts)
   ---@type WindowContext[]
   local contexts = {}
@@ -235,11 +236,10 @@ function M.clip_window_context(win_ctx, opts)
   local line = api.nvim_buf_get_lines(win_ctx.buf_handle, row - 1, row, false)[1]
 
   if opts.current_line_only then
-    local right_column = string.len(line)
     win_ctx.line_range[1] = row
     win_ctx.line_range[2] = row
     win_ctx.column_range[1] = 0
-    win_ctx.column_range[2] = right_column
+    win_ctx.column_range[2] = string.len(line)
   end
 
   if opts.direction == hint.HintDirection.BEFORE_CURSOR then
