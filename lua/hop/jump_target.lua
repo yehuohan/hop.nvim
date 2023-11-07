@@ -215,26 +215,13 @@ function M.sort_indirect_jump_targets(indirect_jump_targets, opts)
 end
 
 -- Apply an offset on jump target
--- Always offset in cell first, then in line
+-- Always offset in row first, then in cell
 ---@param jt JumpTarget
----@param offset_cell WindowCell|nil
 ---@param offset_row WindowRow|nil
-function M.move_jump_target(jt, offset_cell, offset_row)
-  local dcell = offset_cell or 0
+---@param offset_cell WindowCell|nil
+function M.move_jump_target(jt, offset_row, offset_cell)
   local drow = offset_row or 0
-
-  if dcell ~= 0 then
-    local line = vim.api.nvim_buf_get_lines(jt.buffer, jt.cursor.row - 1, jt.cursor.row, false)[1]
-    local line_cells = vim.fn.strdisplaywidth(line)
-    ---@type WindowCell
-    local new_cell = vim.fn.strdisplaywidth(line:sub(1, jt.cursor.col)) + dcell
-    if new_cell >= line_cells then
-      new_cell = line_cells
-    elseif new_cell < 0 then
-      new_cell = 0
-    end
-    jt.cursor.col = vim.fn.byteidx(line, window.cell2char(line, new_cell))
-  end
+  local dcell = offset_cell or 0
 
   if drow ~= 0 then
     ---@type WindowRow
@@ -247,6 +234,19 @@ function M.move_jump_target(jt, offset_cell, offset_row)
     else
       jt.cursor.row = new_row
     end
+  end
+
+  if dcell ~= 0 then
+    local line = vim.api.nvim_buf_get_lines(jt.buffer, jt.cursor.row - 1, jt.cursor.row, false)[1]
+    local line_cells = vim.fn.strdisplaywidth(line)
+    ---@type WindowCell
+    local new_cell = vim.fn.strdisplaywidth(line:sub(1, jt.cursor.col)) + dcell
+    if new_cell >= line_cells then
+      new_cell = line_cells
+    elseif new_cell < 0 then
+      new_cell = 0
+    end
+    jt.cursor.col = vim.fn.byteidx(line, window.cell2char(line, new_cell))
   end
 end
 
