@@ -69,7 +69,7 @@ M.paste_char1 = function(opts)
       return
     end
 
-    jump_target.move_jump_target(target, opts.hint_offset)
+    jump_target.move_jump_target(target, 0, opts.hint_offset)
 
     require('hop-yank.yank').paste_from(target, opts.yank_register)
   end)

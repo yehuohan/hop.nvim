@@ -212,7 +212,7 @@ function M.move_cursor_to(jt, opts)
     jt.cursor.col = jt.cursor.col + 1
   end
 
-  jump_target.move_jump_target(jt, opts.hint_offset)
+  jump_target.move_jump_target(jt, 0, opts.hint_offset)
 
   -- Update the jump list
   -- There is bug with set extmark neovim/neovim#17861
