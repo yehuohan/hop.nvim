@@ -11,6 +11,7 @@ M.perm_method = require('hop.perm').TrieBacktrackFilling
 M.reverse_distribution = false
 M.x_bias = 10
 M.teasing = true
+M.virtual_cursor = false
 M.jump_on_sole_occurrence = true
 M.case_insensitive = true
 M.create_hl_autocmd = true
