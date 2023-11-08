@@ -1,4 +1,4 @@
-*hop.txt*    For Neovim version 0.9                  Last change: 2023 Sep 11
+*hop.txt*    For Neovim version 0.9                  Last change: 2023 Nov 8
 
                                  __
                                 / /_  ____  ____
@@ -7,7 +7,7 @@
                              /_/ /_/\____/ .___/
                                         /_/
                          · Neovim motions on speed! ·
-                                     v2.3.0
+                                     v2.5.0
 
 ==============================================================================
 CONTENTS                                                          *hop-contents*
@@ -729,6 +729,13 @@ below.
 
     Defaults:~
         `teasing = true`
+
+`virtual_cursor`                                       *hop-config-virtual_cursor*
+    Creates a virtual cursor in place of actual cursor when hop waits for
+    user input to indicate the active window.
+
+    Defaults:~
+        `virtual_cursor = true`
 
 `jump_on_sole_occurrence`                     *hop-config-jump_on_sole_occurrence*
     Immediately jump without displaying hints if only one occurrence exists.

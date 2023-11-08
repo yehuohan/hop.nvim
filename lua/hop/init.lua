@@ -123,7 +123,9 @@ local function apply_dimming(hint_state, opts)
   end
 
   -- Add the virtual cursor
-  add_virt_cur(hint_state.hl_ns)
+  if opts.virtual_cursor then
+    add_virt_cur(hint_state.hl_ns)
+  end
 end
 
 -- Get pattern from input for hint and preview
