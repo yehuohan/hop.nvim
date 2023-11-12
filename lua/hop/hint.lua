@@ -194,12 +194,12 @@ end
 ---@param jump_targets JumpTarget[]
 function M.set_hint_preview(hl_ns, jump_targets)
   for _, jt in ipairs(jump_targets) do
+    -- This is always a single line highlight
     local row, col = window.pos2extmark(jt.cursor)
     api.nvim_buf_set_extmark(jt.buffer, hl_ns, row, col, {
       end_row = row,
       end_col = col + jt.length,
       hl_group = 'HopPreview',
-      hl_eol = true,
       priority = M.HintPriority.HINT,
     })
   end
