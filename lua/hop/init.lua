@@ -66,27 +66,22 @@ end
 -- - the current line is empty
 -- - there are multibyte characters on the line
 ---@param ns number
-local function add_virt_cur(ns)
+---@param win_ctx WindowContext
+local function add_virt_cur(ns, win_ctx)
   local hint = require('hop.hint')
+  local window = require('hop.window')
 
-  local cur_info = vim.fn.getcurpos()
-  local cur_row = cur_info[2] - 1
-  local cur_col = cur_info[3] - 1 -- this gives cursor column location, in bytes
-  local cur_offset = cur_info[4]
-  local virt_col = cur_info[5] - 1
-  local cur_line = api.nvim_get_current_line()
-
-  -- first check to see if cursor is in a tab char or past end of line or in empty line
-  if cur_offset ~= 0 or #cur_line == cur_col then
-    api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
+  local row, col = window.pos2extmark(win_ctx.cursor)
+  if win_ctx.cursor.off > 0 then
+    api.nvim_buf_set_extmark(win_ctx.buf_handle, ns, row, col, {
       virt_text = { { '█', 'Normal' } },
-      virt_text_win_col = virt_col,
+      virt_text_win_col = win_ctx.cursor.virt,
       priority = hint.HintPriority.CURSOR,
     })
   else
-    api.nvim_buf_set_extmark(0, ns, cur_row, cur_col, {
-      -- end_col must be column of next character, in bytes
-      end_col = vim.fn.byteidx(cur_line, vim.fn.charidx(cur_line, cur_col) + 1),
+    local line = api.nvim_buf_get_lines(win_ctx.buf_handle, win_ctx.cursor.row - 1, win_ctx.cursor.row, false)[1]
+    api.nvim_buf_set_extmark(win_ctx.buf_handle, ns, row, col, {
+      end_col = vim.fn.byteidx(line, vim.fn.charidx(line, win_ctx.cursor.col) + 1),
       hl_group = 'HopCursor',
       priority = hint.HintPriority.CURSOR,
     })
@@ -124,7 +119,7 @@ local function apply_dimming(hint_state, opts)
 
   -- Add the virtual cursor
   if opts.virtual_cursor then
-    add_virt_cur(hint_state.hl_ns)
+    add_virt_cur(hint_state.hl_ns, hint_state.all_ctxs[1])
   end
 end
 
