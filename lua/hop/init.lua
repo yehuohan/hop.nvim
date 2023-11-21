@@ -209,7 +209,7 @@ function M.move_cursor_to(jt, opts)
   local hint = require('hop.hint')
   local jump_target = require('hop.jump_target')
 
-  -- If it is pending for operator shift pos.col to the right by 1
+  -- If it is pending for operator shift cursor.col to the right by 1
   if api.nvim_get_mode().mode == 'no' and opts.direction ~= hint.HintDirection.BEFORE_CURSOR then
     jt.cursor.col = jt.cursor.col + 1
   end
@@ -224,7 +224,9 @@ function M.move_cursor_to(jt, opts)
   vim.cmd("normal! m'")
   -- Note that nvim_win_set_cursor() only supports virtualedit=all
   -- Must set cursor with setpos() that supports virtualedit=insert/block
+  -- api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col + jt.cursor.off })
   vim.fn.setpos('.', { jt.buffer, jt.cursor.row, jt.cursor.col + 1, jt.cursor.off })
+  vim.fn.winrestview({ curswant = vim.fn.virtcol('.') - 1 })
 end
 
 ---@param jump_target_gtr Generator
