@@ -34,24 +34,25 @@
 ---@field line string
 ---@field line_cliped string
 ---@field col_bias WindowCol Bias column of the left clipped line
----@field off_bias WindowCol Bias cell column of the left clipped blank cells for 'virtualedit' is enabled
+---@field off_bias WindowCell Bias cell column of the left clipped blank cells for 'virtualedit' is enabled
 
 -- The Cursor and LineContext under WindowContext:
 -- ```
---                  | virt         |
--- | col_bias       |        | off |
--- 1****************|========~~~~~~$~~|
--- | win_offset     | win_width       |
+--                       | virt         |
+-- | col_bias            |        | off |
+-- 1*********************|========|~~~~~$~~|
+-- | win_offset          | win_width       |
 --
---       | off                     |
--- 2*****|~~~~~~~~~~|~~~~~~~~~~~~~~$~~|
---       | off_bias | win_width       |
+--            | off                     |
+-- | col_bias | off_bias | virt         |
+-- 2**********|~~~~~~~~~~|~~~~~~~~~~~~~~$~~|
+-- | win_offset          | win_width       |
 -- ```
 -- '1' : line 1 with long line string
 -- '2' : line 2 with short line string
 -- '*' : line string hidded to window left
 -- '=' : line string displayed on window
--- '~' : blank cells with any text after line string
+-- '~' : blank cells without any text after line string
 -- '$' : cursor with 'virtualedit' enabled
 --
 ---@class WindowContext
@@ -330,7 +331,7 @@ function M.clip_line_context(win_ctx, line_ctx, opts)
     end
   end
 
-  ---@type WindowCol
+  ---@type WindowCell
   local off_bias = 0
   if win_ctx.win_offset > line_cells then
     off_bias = win_ctx.win_offset - line_cells
