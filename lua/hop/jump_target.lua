@@ -38,7 +38,7 @@ local M = {}
 ---@param x_bias number
 ---@return number
 local function manh_dist(a, b, x_bias)
-  return (x_bias * math.abs(b.row - a.row)) + math.abs(b.col + b.off - a.col - a.col)
+  return (x_bias * math.abs(b.row - a.row)) + math.abs(b.col + b.off - a.col - a.off)
 end
 
 -- Create jump targets within line
