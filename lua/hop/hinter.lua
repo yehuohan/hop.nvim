@@ -1,5 +1,8 @@
----@alias Collector fun(self, match:Matcher):JumpTarget[] Collect all matched jump targets
----@alias Selector fun(self, jump_targets:JumpTarget[]):JumpTarget Select one jump target
+--- Collect all matched jump targets
+---@alias Collector fun(self, match:Matcher):JumpTarget[]
+
+--- Select one jump target
+---@alias Selector fun(self, jump_targets:JumpTarget[]):JumpTarget
 
 ---@class Hinter
 --- Privates
@@ -335,7 +338,8 @@ end
 
 local M = {}
 
----@alias Distancer fun(a:Cursor, b:Cursor):number Compute distance between cursors
+--- Compute distance between cursors
+---@alias Distancer fun(a:Cursor, b:Cursor):number
 
 --- Create a new hinter
 ---@param opts Options

@@ -95,6 +95,24 @@ vim.wo[0].virtualedit = 'all'
 <img alt="Virtualedit" src="README/virtualedit.gif"  width=80% height=80% />
 </div>
 
+- Support [multicursor.nvim](https://github.com/jake-stewart/multicursor.nvim)
+
+```lua
+local mc = require('multicursor-nvim')
+mc.addKeymapLayer(function(lyr)
+    local hop = require('hop')
+    local move_mc = require('hop.jumper').move_multicursor
+    lyr({ 'n', 'x' }, 's', function() hop.char({ jump = move_mc }) end)
+    lyr({ 'n', 'x' }, 'f', function() hop.anywhere({ jump = move_mc, current_line_only = true }) end)
+    lyr({ 'n', 'x' }, '<leader>j', function() hop.vertical({ jump = move_mc }) end)
+    end)
+end)
+```
+
+<div align="center">
+<img alt="MultiCursor" src="README/multicursor.gif"  width=80% height=80% />
+</div>
+
 - Support jump to any type characters (e.g. 中文字符) via `opts.match_mappings`
 
 ```lua
