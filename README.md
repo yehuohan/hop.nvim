@@ -6,121 +6,186 @@
                                                      /_/
                                       · Neovim motions on speed! ·
 
-<p align="center">
-  <img src="https://img.shields.io/github/issues/smoka7/hop.nvim?color=cyan&style=for-the-badge"/>
-  <img src="https://img.shields.io/github/issues-pr/smoka7/hop.nvim?color=green&style=for-the-badge"/>
-  <img src="https://img.shields.io/github/contributors-anon/smoka7/hop.nvim?color=blue&style=for-the-badge"/>
-  <img src="https://img.shields.io/github/last-commit/smoka7/hop.nvim?style=for-the-badge"/>
-  <img src="https://img.shields.io/github/v/tag/smoka7/hop.nvim?color=pink&label=release&style=for-the-badge"/>
-</p>
+A fork & rewrite of [hop.nvim](https://github.com/phaazon/hop.nvim).
 
-**Hop** is an [EasyMotion](https://github.com/easymotion/vim-easymotion)-like plugin allowing you to jump anywhere in a
-document with as few keystrokes as possible. It does so by annotating text in
-your buffer with hints, short string sequences for which each character
-represents a key to type to jump to the annotated text. Most of the time,
-those sequences’ lengths will be between 1 to 3 characters, making every jump
-target in your document reachable in a few keystrokes.
+# Requirements
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/506592/176885253-5f618593-77c5-4843-9101-a9de30f0a022.png"/>
-</p>
+- Neovim >= 0.9.0
 
-This is a fork of the [original hop.nvim repo](https://github.com/phaazon/hop.nvim)
 
-# Features
+# Setup
 
-- Go to any word in the current buffer (`:HopWord`).
-- Go to any camelCase word in the current buffer (`:HopCamelCase`).
-- Go to any character in the current buffer (`:HopChar1`).
-- Go to any bigrams in the current buffer (`:HopChar2`).
-- Make an arbitrary search akin to <kbd>/</kbd> and go to any occurrences (`:HopPattern`).
-- Go to any line and any line start (`:HopLine`, `:HopLineStart`).
-- Go to anywhere (`:HopAnywhere`).
-- Go to treesitter nodes (`:HopNodes`).
-- Paste text in the hinted position without jumping (`:HopPaste`).
-- Yank the text between two hinted position without jumping (`:HopYankChar1`).
-- Use Hop cross windows with multi-windows support (`:Hop*MW`).
-- Use it with commands like `v`, `d`, `c`, `y` to visually select/delete/change/yank up to your new cursor position.
-- Support a wide variety of user configuration options, among the possibility to alter the behavior of commands
-  to hint only before or after the cursor (`:Hop*BC`, `:Hop*AC`), for the current line (`:Hop*CurrentLine`),
-  change the dictionary keys to use for the labels, jump on sole occurrence, etc.
-- Extensible: provide your own jump targets and create Hop extensions!
-
-# Installation
-
-## Using lazy.nvim
+With default configs:
 
 ```lua
 {
-    'smoka7/hop.nvim',
-    version = "*",
-    opts = {},
+    'yehuohan/hop.nvim',
+    ---@type require('hop.config').Options
+    opts = {
+        --- Chars to generate hint lable for jump targets
+        keys = 'asdghklqwertyuiopzxcvbnmfj',
+
+        --- The char to quit hop operation
+        key_quit = '<Esc>',
+
+        --- The char to delete one inputed char and re-select hint lable for jump targets
+        key_delete = '<Bs>',
+
+        --- Extend match capabilities (For matcher._checkout_mappings and matcher.chars)
+        --- Currently supported: { "zh", "zh_sc", "zh_tc", "fa" }
+        match_mappings = {},
+
+        --- Compute distance between cursors
+        --- fun(a:Cursor, b:Cursor):number
+        distance = require('hop.hinter').manhattan,
+
+        --- Generate permutations from Options.keys
+        --- fun(keys:string, n:integer):string[][]
+        permute = require('hop.permutation').permute,
+
+        --- Operation on the jump target
+        --- fun(jump_target:JumpTarget, opts:Options)
+        jump = require('hop.jumper').move_cursor,
+
+        --- Change hint position among the matched string, 0.0 for left and 1.0 for right
+        hint_position = 0.0,
+
+        --- Reverse hint position to make shorter hint lables placed further
+        hint_reverse = false,
+
+        --- Setup highlights for ColorScheme event
+        auto_setup_hl = true,
+
+        --- Auto jump when there's only one jump target
+        auto_jump_one_target = true,
+
+        --- Work for current line only (current_window_only will be set true forcely)
+        current_line_only = false,
+
+        --- Work for current window only
+        current_window_only = false,
+
+        --- Exclude window via function
+        --- fun(hwin, hbuf):boolean
+        exclude_window = nil,
+    }
 }
 ```
 
-## Using packer
+
+# Features
+
+- Support re-selecting jump target via `opts.key_delete`
 
 ```lua
-use {
-  'smoka7/hop.nvim',
-  tag = '*', -- optional but strongly recommended
-  config = function()
-    -- you can configure Hop the way you like here; see :h hop-config
-    require'hop'.setup { keys = 'etovxqpdygfblzhckisuran' }
-  end
-}
+{ key_delete = '<Bs>' }
 ```
 
-## Supported Neovim versions
+<div align="center">
+<img alt="Delete" src="README/delete.gif"  width=80% height=80% />
+</div>
 
-Hop supports **latest stable release** and nightly releases of Neovim. However, keep in mind that if you are on a nightly version, you must be **on
-the last one**. If you are not, then you are exposed to compatibility issues / breakage.
-
-## Important note about versioning
-
-This plugin implements [SemVer] via git tags. Versions are prefixed with a `v`. You are **advised** to use a major version
-dependency to be sure your config will not break when Hop gets updated.
-
-# Usage
-
-See the [wiki](https://github.com/smoka7/hop.nvim/wiki).
-
-# Keybindings
-
-Hop doesn’t set any keybindings; you will have to define them by yourself.
-
-If you want to create a key binding from within Lua:
+- Support `virtualedit`
 
 ```lua
--- place this in one of your configuration file(s)
-local hop = require('hop')
-local directions = require('hop.hint').HintDirection
-vim.keymap.set('', 'f', function()
-  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true })
-end, {remap=true})
-vim.keymap.set('', 'F', function()
-  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true })
-end, {remap=true})
-vim.keymap.set('', 't', function()
-  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true, hint_offset = -1 })
-end, {remap=true})
-vim.keymap.set('', 'T', function()
-  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true, hint_offset = 1 })
-end, {remap=true})
+vim.wo[0].virtualedit = 'all'
+```
+
+<div align="center">
+<img alt="Virtualedit" src="README/virtualedit.gif"  width=80% height=80% />
+</div>
+
+- Support jump to any type characters (e.g. 中文字符) via `opts.match_mappings`
+
+```lua
+{ match_mappings = { 'zh', 'zh_sc' } }
+```
+
+<div align="center">
+<img alt="Match Mappings" src="README/match_mappings.gif"  width=80% height=80% />
+</div>
+
+- Create/extend hop operations very easily
+
+*With `require('hop').wrap` for a simple operation:*
+
+```lua
+local function hop_char2()
+    local hop = require('hop')
+    local matcher = require('hop.matcher')
+
+    hop.echo('Hop 2 chars:', 'inp')
+    local ok1, c1 = pcall(fn.getcharstr)
+    if not ok1 then
+        return
+    end
+    local ok2, c2 = pcall(fn.getcharstr)
+    if not ok2 then
+        return
+    end
+
+    require('hop').wrap(
+        ---@type require('hop.matcher').Matcher
+        matcher.by_regex(c1 .. c2, true, false),
+        ---@type require('hop.config').Options
+        {
+            ---@type require('hop.jumper').Jumper
+            jump = function(jt, opts)
+                vim.api.nvim_set_current_win(jt.window)
+                vim.fn.setpos('.', { jt.buffer, jt.cursor.row, jt.cursor.col + 1, jt.cursor.off })
+                vim.fn.winrestview({ curswant = vim.fn.virtcol('.') - 1 })
+            end,
+        }
+    )
+end
+```
+
+*With `require('hop.hinter')` for a more powerful operation:*
+
+```lua
+local function custom()
+    local hop = require('hop')
+    local matcher = require('hop.matcher')
+    local hinter = require('hop.hinter')
+
+    local opts = hop.get_opts()
+    local ht = hinter.new(opts) -- Create a hinter
+    ---@type hinter.JumpTarget[]
+    local jts = ht:collect(matcher.word) -- Collect jump targets
+
+    -- Perform more processing on all matched jump targets here
+
+    ---@type hinter.JumpTarget
+    local jt = ht:select(jts) -- Select one jump target
+    if jt then
+
+        -- Perform more processing on the selected jump target here
+
+        opts.jump(jt, opts) -- Jump to selected jump target
+    end
+end
 ```
 
 
-# Other tools like hop.nvim
+# Operations
 
-* [sneak.nvim](https://github.com/justinmk/vim-sneak)
-* [EasyMotion](https://github.com/easymotion/vim-easymotion)
-* [Seek](https://github.com/goldfeld/vim-seek)
-* [smalls](https://github.com/t9md/vim-smalls)
-* [improvedft](https://github.com/chrisbra/improvedft)
-* [clever-f](https://github.com/rhysd/clever-f.vim)
-* [vim-extended-ft](https://github.com/svermeulen/vim-extended-ft)
-* [Fanf,ingTastic;](https://github.com/dahu/vim-fanfingtastic)
-* [IdeaVim-Sneak](https://plugins.jetbrains.com/plugin/15348-ideavim-sneak)
-* [leap.nvim](https://github.com/ggandor/leap.nvim)
-* [flash.nvim](https://github.com/folke/flash.nvim)
+All operations from `hop = require('hop')` accept `require('hop.config').Options` to override global options,
+and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>HopChar<CR>')`.
 
+- `:HopChar`, `hop.char(opts)`: Jump to an any character
+- `:HopWord`, `hop.word(opts)`: Jump to an any word start
+- `:HopAnywhere`, `hop.anywhere(opts)`: Jump to anywhere
+- `:HopLineStart`, `hop.line_start(opts)`: Jump to any line start with whitespace characters skipped
+- `:HopVertical`, `hop.vertical(opts)`: Jump the any line with cursor column
+
+> `:Hop<xxx>CL` means `{ current_line_only = true }`
+>
+> `:Hop<xxx>CW` means `{ current_window_only = true}`
+
+
+# Highlights
+
+- `HopNextKey`: Highlight the mono-sequence keys (i.e. sequence of 1)
+- `HopNextKey1`: Highlight the first key in a sequence
+- `HopNextKey2`: Highlight the second and remaining keys in a sequence
+- `HopUnmatched`: Highlight unmatched part of the buffer

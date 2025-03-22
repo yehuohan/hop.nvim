@@ -1,4 +1,4 @@
-# run tests located at «lua/tests/» (files named *_spec.lua)
+# run tests located at tests/hop/*_spec.lua
 TESTS_INIT=tests/minimal_init.lua
 TESTS_DIR=tests/
 

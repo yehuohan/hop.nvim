@@ -1,66 +1,59 @@
 local hop = require('hop')
-local hop_hint = require('hop.hint')
-local api = vim.api
-local eq = assert.are.same
 local hop_helpers = require('hop_helpers')
+local eq = assert.are.same
 
 local override_keyseq = hop_helpers.override_keyseq
 
-local test_count = 0
-
-describe('Hop movement is correct', function()
-  before_each(function()
-    vim.cmd.new(test_count .. 'test_file')
-    test_count = test_count + 1
-    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-      'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxy',
-    })
-    hop.setup()
-  end)
-
-  it('Hop is initialized', function()
-    eq(hop.initialized, true)
-  end)
-
-  it('HopChar1AC', function()
-    vim.api.nvim_win_set_cursor(0, { 1, 1 })
-
-    override_keyseq({ 'c', 's' }, function()
-      hop.hint_char1({ direction = hop_hint.HintDirection.AFTER_CURSOR })
-    end)
-    eq(28, api.nvim_win_get_cursor(0)[2])
-  end)
-
-  it('HopChar2AC', function()
-    vim.api.nvim_win_set_cursor(0, { 1, 1 })
-
-    override_keyseq({ 'c', 'd', 's' }, function()
-      hop.hint_char2({ direction = hop_hint.HintDirection.AFTER_CURSOR })
+describe('hop commands:', function()
+    before_each(function()
+        vim.cmd.view('tests/tst_hop.txt')
+        hop.setup()
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
     end)
 
-    eq(28, api.nvim_win_get_cursor(0)[2])
-  end)
-
-  it('Hop from empty line', function()
-    vim.api.nvim_buf_set_lines(0, 0, -1, false, {
-      'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxy',
-      '',
-      'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxy',
-    })
-    vim.api.nvim_win_set_cursor(0, { 2, 1 })
-
-    override_keyseq({ 'c', 's' }, function()
-      hop.hint_char1({ direction = hop_hint.HintDirection.AFTER_CURSOR })
+    it('HopChar, HopCharCL', function()
+        override_keyseq({ 'h', 's' }, vim.cmd.HopChar)
+        eq({ 3, 7 }, vim.api.nvim_win_get_cursor(0))
+        override_keyseq({ 'h' }, vim.cmd.HopCharCL) -- config.auto_jump_one_target
+        eq({ 3, 34 }, vim.api.nvim_win_get_cursor(0))
     end)
 
-    eq({ 3, 28 }, api.nvim_win_get_cursor(0))
+    it('HopWord, HopWordCL', function()
+        override_keyseq({ 'a' }, vim.cmd.HopWord)
+        eq({ 3, 0 }, vim.api.nvim_win_get_cursor(0))
+        override_keyseq({ 'a' }, vim.cmd.HopWordCL)
+        eq({ 3, 27 }, vim.api.nvim_win_get_cursor(0))
 
-    vim.api.nvim_win_set_cursor(0, { 2, 1 })
-
-    override_keyseq({ 'c', 's' }, function()
-      hop.hint_char1({ direction = hop_hint.HintDirection.BEFORE_CURSOR })
+        override_keyseq({ 'd' }, function()
+            hop.word({ hint_position = 0.8 }) -- config.hint_position
+        end)
+        eq({ 1, 20 }, vim.api.nvim_win_get_cursor(0))
     end)
 
-    eq({ 1, 28 }, api.nvim_win_get_cursor(0))
-  end)
+    it('HopAnywhere, HopAnywhereCL', function()
+        local bs = hop.get_opts().key_delete
+        override_keyseq({ 'j', bs, 'v' }, vim.cmd.HopAnywhere) -- config.key_delete
+        eq({ 3, 0 }, vim.api.nvim_win_get_cursor(0))
+        override_keyseq({ 'j', 'a' }, vim.cmd.HopAnywhereCL)
+        eq({ 3, 27 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it('HopLineStart', function()
+        vim.cmd.normal({ args = { 'w' }, bang = true })
+        override_keyseq({ 'd' }, vim.cmd.HopLineStart)
+        eq({ 3, 0 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it('HopVertical', function()
+        vim.cmd.normal({ args = { 'w' }, bang = true })
+        override_keyseq({ 's' }, vim.cmd.HopVertical)
+        eq({ 3, 27 }, vim.api.nvim_win_get_cursor(0))
+
+        vim.wo[0].virtualedit = 'all'
+        override_keyseq({ 'a' }, vim.cmd.HopVertical)
+        local curpos = vim.fn.getcurpos(0)
+        eq(2, curpos[2])
+        eq(1, curpos[3])
+        eq(27, curpos[4])
+    end)
 end)
