@@ -29,4 +29,28 @@ function M.move_cursor(jump_target, opts)
     fn.winrestview({ curswant = fn.virtcol('.') - 1 })
 end
 
+--- Move multicursor to jump target
+---@param jump_target JumpTarget
+---@param opts Options
+function M.move_multicursor(jump_target, opts)
+    local mc = require('multicursor-nvim')
+    local jt = jump_target
+    local jt_cur = jt.cursor
+
+    mc.action(function(ctx)
+        local curs = ctx:getCursors()
+        local main_cur = ctx:mainCursor()
+        local main_pos = main_cur:getPos()
+        local drow = jt_cur.row - main_pos[1]
+        local dcol = jt_cur.col - main_pos[2] + 1
+        local doff = jt_cur.off - main_pos[3]
+        for _, cur in ipairs(curs) do
+            local pos = cur:getPos()
+            cur:setPos({ pos[1] + drow, pos[2] + dcol, pos[3] + doff })
+        end
+    end)
+
+    M.move_cursor(jt, opts)
+end
+
 return M
