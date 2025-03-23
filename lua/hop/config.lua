@@ -49,7 +49,7 @@ function M.check_opts(opts)
         opts.key_delete = api.nvim_replace_termcodes(opts.key_delete, true, false, true)
     end
     if opts.current_line_only then
-        opts.current_window_only = false
+        opts.current_window_only = true
     end
     return opts
 end
