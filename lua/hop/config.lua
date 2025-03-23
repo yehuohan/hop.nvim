@@ -7,7 +7,7 @@ local api = vim.api
 ---@field key_delete string The char to delete one inputed char and re-select hint lable for jump targets
 ---@field match_mappings table Extend match capabilities (For matcher._checkout_mappings and matcher.chars)
 ---@field distance Distancer
----@field permute Permutation
+---@field permute PermGenerator
 ---@field jump Jumper
 ---@field hint_position number Change hint position among the matched string, 0.0 for left and 1.0 for right (MatchResult.b/e)
 ---@field hint_reverse boolean|nil Reverse hint position to make shorter hint lables placed further

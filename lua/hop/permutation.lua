@@ -1,201 +1,141 @@
 local fn = vim.fn
 
----@class Trie
----@field key string
----@field trie Trie[]
+---@alias char string
 
---- Permutation algorithm based on tries and backtrack filling.
-local TrieBacktrackFilling = {}
+--- A permutation algorithm implementation
+---
+--- We have:
+---     n, n > 0                   : The required number of permutations
+---     z, z = #keys > 1           : The number of `keys`
+---     y, 0 < y                   : For higher depth permutations (longer label)
+---     x, 0 < x <= z^y            : For lower depth permutations (shorter label)
+---     f(x,y) = x + (z^y - x) * z : The max number of possible permutations
+--- Then:
+---     f(x,y) >= n
+---     --->    x <= (z^(y+1) - n) / (z - 1)
+---     --->    y > log_z(n) - 1
+--- Make:
+---     min(y)
+---     max(x)
+---@class PermImpl
+---@field keys char[] The characters for permutations
+---@field permute fun(self, n:integer):string[]
 
---- Get the first key of a key set.
----@param keys string
----@return string
-local function first_key(keys)
-    return keys:sub(1, fn.byteidx(keys, 1))
-end
+local P = {}
+P.__index = P
 
---- Get the next key of the input key in the input key set, if any, or return nil.
----@param keys string
----@param key string
----@return string?
-local function next_key(keys, key)
-    local _, e = keys:find(key, 1, true)
-
-    if e == #keys then
-        return nil
+--- Compute `x` and `y`
+---@param n number The required number of permutations
+---@return integer x
+---@return integer y
+function P:_xy(n)
+    local z = #self.keys
+    if n <= z then
+        return n, 1 -- s.t. y > 0
     end
 
-    local next = keys:sub(e + 1)
-    local n = next:sub(1, fn.byteidx(next, 1))
-    return n
+    local y = math.log(n) / math.log(z) - 1
+    y = math.ceil(y) -- s.t. x > 0 & min(y)
+    local x = (math.pow(z, y + 1) - n) / (z - 1)
+    x = math.floor(x) -- s.t. max(x), perfer more shorter permutation as labels
+    return x, y
 end
 
---- Get the sequence encoded in a trie by a pointer.
----@param trie Trie[]
----@param p Trie
----@return string[]
-function TrieBacktrackFilling:lookup_seq_trie(trie, p)
-    local seq = {}
-    local t = trie
-
-    for _, i in pairs(p) do
-        local current_trie = t[i]
-
-        seq[#seq + 1] = current_trie.key
-        t = current_trie.trie
+--- Generate permutations at the depth
+---@param depth integer Means the permutation as label has `#label = depth`
+function P:_gen(depth)
+    if depth == 1 then
+        self[depth] = self.keys -- `self[-depth]` is not required for depth = 1
+        return
     end
 
-    seq[#seq + 1] = t[#t].key
-
-    return seq
-end
-
---- Add a new permutation to the trie at the current pointer by adding a key.
----@param trie Trie[]
----@param p Trie
----@param key string
----@return Trie[]
-function TrieBacktrackFilling:add_trie_key(trie, p, key)
-    local seq = {}
-    local t = trie
-
-    -- find the parent trie
-    for _, i in pairs(p) do
-        local current_trie = t[i]
-
-        seq[#seq + 1] = current_trie.key
-        t = current_trie.trie
+    -- Generate indices for perms[i1, i2, ..., id]
+    local indices = {}
+    for _ = 1, depth - 1 do
+        indices[#indices + 1] = 1 -- Make lua happy for 1-based index
     end
+    indices[#indices + 1] = 0
 
-    t[#t + 1] = { key = key, trie = {} }
-
-    return trie
-end
-
--- Maintain a trie pointer of a given dimension.
--- If a pointer has components { 4, 1 } and the dimension is 4, this function will
--- automatically complete the missing dimensions by adding the last index, i.e. { 4, 1, X, X }.
----@param depth number
----@param n number
----@param p Trie
----@return Trie
-local function maintain_deep_pointer(depth, n, p)
-    local q = vim.deepcopy(p)
-
-    for i = #p + 1, depth do
-        q[i] = n
-    end
-
-    return q
-end
-
---- Generate the next permutation with backtrack filling.
---- Returns `perms` added with the next permutation.
----@param keys string input key set.
----@param trie Trie[] representing all the already generated permutations.
----@param p  Trie current pointer in the trie. It is a list of indices representing
----               the parent layer in which the current sequence occurs in.
----@return Trie[],Trie
-function TrieBacktrackFilling:next_perm(keys, trie, p)
-    if #trie == 0 then
-        return { { key = first_key(keys), trie = {} } }, p
-    end
-
-    -- check whether the current sequence can have a next one
-    local current_seq = self:lookup_seq_trie(trie, p)
-    local key = next_key(keys, current_seq[#current_seq])
-
-    if key ~= nil then
-        -- we can generate the next permutation by just adding key to the current trie
-        self:add_trie_key(trie, p, key)
-        return trie, p
-    else
-        -- we have to backtrack; first, decrement the pointer if possible
-        local max_depth = #p
-        local keys_len = fn.strwidth(keys)
-
-        while #p > 0 do
-            local last_index = p[#p]
-            if last_index > 1 then
-                p[#p] = last_index - 1
-
-                p = maintain_deep_pointer(max_depth, keys_len, p)
-
-                -- insert the first key at the new pointer after mutating the one already there
-                self:add_trie_key(trie, p, first_key(keys))
-                local k = next_key(keys, first_key(keys))
-                if k ~= nil then
-                    self:add_trie_key(trie, p, k)
-                end
-                return trie, p
+    -- Generate permutations
+    local z = #self.keys
+    local pos_perms = {}
+    local neg_perms = {}
+    for k = 1, math.pow(z, depth) do
+        for d = depth, 1, -1 do
+            indices[d] = indices[d] + 1
+            if indices[d] <= z then
+                break
             else
-                -- we have exhausted all the permutations for the current layer; drop the layer index and try again
-                p[#p] = nil
+                indices[d] = 1
             end
         end
 
-        -- all layers are completely full everywhere; add a new layer at the end
-        p = maintain_deep_pointer(max_depth, keys_len, p)
-
-        p[#p + 1] = #trie -- new layer
-        self:add_trie_key(trie, p, first_key(keys))
-        local k = next_key(keys, first_key(keys))
-        if k ~= nil then
-            self:add_trie_key(trie, p, k)
+        local pos = ''
+        local neg = ''
+        for d = 1, depth - 1 do
+            pos = pos .. self.keys[indices[d]]
+            neg = neg .. self.keys[z - indices[d] + 1]
         end
-
-        return trie, p
+        pos_perms[k] = pos .. self.keys[indices[depth]]
+        neg_perms[k] = neg .. self.keys[indices[depth]]
     end
+    self[depth] = pos_perms
+    self[-depth] = neg_perms
 end
 
----@param trie Trie
----@param perm string[]
----@return string[]
-function TrieBacktrackFilling:trie_to_perms(trie, perm)
-    local perms = {}
-    local p = vim.deepcopy(perm)
-    p[#p + 1] = trie.key
+--- Generate permutations
+---@param n number The required number of permutations
+function P:permute(n)
+    local x, y = self:_xy(n)
+    -- print(string.format('x = %d, y = %d, z = %d', x, y, #self.keys))
 
-    if #trie.trie > 0 then
-        for _, sub_trie in pairs(trie.trie) do
-            vim.list_extend(perms, self:trie_to_perms(sub_trie, p))
+    -- Merge permutations from two level depth
+    local perms = {}
+    local dlo = y
+    local dhi = dlo + 1
+    if not self[dlo] then
+        self:_gen(dlo)
+    end
+    vim.list_extend(perms, self[dlo], 1, x)
+    if #perms < n then
+        if not self[dhi] then
+            self:_gen(dhi)
         end
-    else
-        perms = { p }
+        vim.list_extend(perms, self[-dhi], 1, n - #perms)
+
+        -- ONLY FOR TEST: keep insistent distribution with original permutation algorithm
+        -- local z = #self.keys
+        -- local reset = n - #perms
+        -- local reset_idx = #self[dhi] - reset + 1
+        -- local reverse_num = reset % z
+        -- local reverse_idx = math.floor(reset_idx - z + reverse_num)
+        -- local reverse = vim.list_slice(self[dhi], reverse_idx, reverse_idx + reverse_num - 1)
+        -- for k = 1, #reverse do
+        --     perms[#perms + 1] = reverse[k]
+        -- end
+        -- vim.list_extend(perms, self[dhi], reset_idx + reverse_num)
     end
-
-    return perms
-end
-
----@param keys string
----@param n number
----@return string[][]
-function TrieBacktrackFilling:permutations(keys, n)
-    local perms = {}
-    local trie = {}
-    local p = {}
-
-    for _ = 1, n do
-        trie, p = self:next_perm(keys, trie, p)
-    end
-
-    for _, sub_trie in pairs(trie) do
-        vim.list_extend(perms, self:trie_to_perms(sub_trie, {}))
-    end
-
     return perms
 end
 
 local M = {}
 
----@alias Permutation fun(keys:string, n:integer):string[][] Generate permutations from Options.keys
+--- Generate permutations from Options.keys
+---@alias PermGenerator fun(keystr:string, n:integer):string[]
 
---- Generate permutations of chars from keys
----@param keys string Chars for permurations
----@param n number The number permutations go generate
----@return string[][]
-function M.permute(keys, n)
-    return TrieBacktrackFilling:permutations(keys, n)
+---@type table<string,PermImpl>
+local cache_permutations = {}
+
+--- Generate permutations from chars
+---@param keystr string
+---@param n number The number permutations to generate
+---@return string[]
+function M.permute(keystr, n)
+    if not cache_permutations[keystr] then
+        cache_permutations[keystr] = setmetatable({ keys = fn.split(keystr, '\\zs') }, P)
+    end
+    local cache = cache_permutations[keystr]
+    return cache:permute(n)
 end
 
 return M

@@ -184,6 +184,8 @@ local function custom()
 end
 ```
 
+- Very very very fast permutation algorithm (see [permutation.lua](./lua/hop/permutation.lua) and [benchmarks.lua](./tests/benchmarks.lua))
+
 
 # Operations
 

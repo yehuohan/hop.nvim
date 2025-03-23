@@ -238,7 +238,7 @@ function H:_create_hint_targets(jump_targets)
     local hint_targets = {}
     local perms = self._opts.permute(self._opts.keys, #jump_targets)
     for k, jt in ipairs(jump_targets) do
-        hint_targets[k] = { label = table.concat(perms[k]), index = 1, jump_target = jt }
+        hint_targets[k] = { label = perms[k], index = 1, jump_target = jt }
     end
     return hint_targets
 end
