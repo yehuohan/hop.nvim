@@ -53,6 +53,12 @@ With default configs:
         --- Reverse hint position to make shorter hint lables placed further
         hint_reverse = false,
 
+        --- Highlight the matched string (e.g. hilight the matched word with hop.word)
+        hl_matched = false,
+
+        --- Highlight the unmatched part of the buffer (i.e. highlight the background)
+        hl_unmatched = true,
+
         --- Setup highlights for ColorScheme event
         auto_setup_hl = true,
 
@@ -198,9 +204,11 @@ and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>Ho
 - `:HopLineStart`, `hop.line_start(opts)`: Jump to any line start with whitespace characters skipped
 - `:HopVertical`, `hop.vertical(opts)`: Jump the any line with cursor column
 
-> `:Hop<xxx>CL` means `{ current_line_only = true }`
+> `:Hop<xxx>` means `{ current_line_only = false, current_window_only = false }`
 >
-> `:Hop<xxx>CW` means `{ current_window_only = true}`
+> `:Hop<xxx>CL` means `{ current_line_only = true, current_window_only = true }`
+>
+> `:Hop<xxx>CW` means `{ current_line_only = false, current_window_only = true }`
 
 
 # Highlights
@@ -208,4 +216,5 @@ and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>Ho
 - `HopNextKey`: Highlight the mono-sequence keys (i.e. sequence of 1)
 - `HopNextKey1`: Highlight the first key in a sequence
 - `HopNextKey2`: Highlight the second and remaining keys in a sequence
-- `HopUnmatched`: Highlight unmatched part of the buffer
+- `HopMatched`: Highlight the matched string (e.g. hilight the matched word with hop.word)
+- `HopUnmatched`: Highlight the unmatched part of the buffer (i.e. highlight the background)

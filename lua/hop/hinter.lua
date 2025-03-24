@@ -11,6 +11,7 @@
 ---@field win_ctxs WindowContext[] All required windows context
 ---@field buf_list integer[] All buffers displaced at win_ctxs
 ---@field ns_hint integer Hint namespace to highlight hint labels
+---@field ns_view integer View namespace to highlight the matched string
 ---@field ns_area integer Area namespace to highlight unmatched buffer area
 ---@field ns_diag table Diagnostic namespaces
 --- Methods
@@ -53,12 +54,14 @@ function H:_setup_state()
     end
 
     self.ns_hint = api.nvim_create_namespace('Hop.NsHint')
+    self.ns_view = api.nvim_create_namespace('Hop.NsView')
     self.ns_area = api.nvim_create_namespace('Hop.NsArea')
 
     -- Clear namespaces in case last hop operation failed before quitting
     for _, buf in ipairs(self.buf_list) do
         if api.nvim_buf_is_valid(buf) then
             api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
+            api.nvim_buf_clear_namespace(buf, self.ns_view, 0, -1)
             api.nvim_buf_clear_namespace(buf, self.ns_area, 0, -1)
         end
     end
@@ -71,6 +74,7 @@ function H:_clear_state()
     for _, buf in ipairs(self.buf_list) do
         if api.nvim_buf_is_valid(buf) then
             api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
+            api.nvim_buf_clear_namespace(buf, self.ns_view, 0, -1)
             api.nvim_buf_clear_namespace(buf, self.ns_area, 0, -1)
 
             for ns in pairs(self.ns_diag) do
@@ -82,6 +86,9 @@ end
 
 --- Render unmatched areas
 function H:_render_areas()
+    if not self._opts.hl_unmatched then
+        return
+    end
     for _, wctx in ipairs(self.win_ctxs) do
         -- Set the highlight of unmatched lines of the buffer.
         local start_line, end_line = window.line_range2extmark(wctx.line_range)
@@ -91,7 +98,7 @@ function H:_render_areas()
             end_col = end_col,
             hl_group = 'HopUnmatched',
             hl_eol = true,
-            priority = 65534,
+            priority = 65533,
         })
         -- Hide diagnostics
         for ns in pairs(self.ns_diag) do
@@ -106,10 +113,22 @@ function H:_render_hints(hint_targets)
     for _, buf in ipairs(self.buf_list) do
         if api.nvim_buf_is_valid(buf) then
             api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
+            api.nvim_buf_clear_namespace(buf, self.ns_view, 0, -1)
         end
     end
 
     for _, ht in pairs(hint_targets) do
+        local jt = ht.jump_target
+        if self._opts.hl_matched and jt.length > 1 then
+            local row, col = window.pos2extmark(jt.cursor)
+            api.nvim_buf_set_extmark(jt.buffer, self.ns_view, row, col, {
+                end_row = row,
+                end_col = col + jt.length,
+                hl_group = 'HopMatched',
+                priority = 65534,
+            })
+        end
+
         local len = #ht.label
         if ht.index > len then
             goto continue

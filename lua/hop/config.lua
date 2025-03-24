@@ -11,6 +11,8 @@ local api = vim.api
 ---@field jump Jumper
 ---@field hint_position number Change hint position among the matched string, 0.0 for left and 1.0 for right (MatchResult.b/e)
 ---@field hint_reverse boolean|nil Reverse hint position to make shorter hint lables placed further
+---@field hl_matched boolean|nil Highlight the matched string inside [MatchResult.b, MatchResult.e]
+---@field hl_unmatched boolean|nil Highlight the unmatched part of the buffer (i.e. highlight the background)
 ---@field auto_setup_hl boolean|nil Setup highlights for ColorScheme event
 ---@field auto_jump_one_target boolean|nil Auto jump when there's only one jump target
 ---@field current_line_only boolean|nil Work for current line only (current_window_only will be set true forcely)
@@ -28,6 +30,8 @@ M._default_opts = {
     jump = require('hop.jumper').move_cursor,
     hint_position = 0.0,
     hint_reverse = false,
+    hl_matched = false,
+    hl_unmatched = true,
     auto_setup_hl = true,
     auto_jump_one_target = true,
     current_line_only = false,
@@ -66,7 +70,10 @@ function M.setup_highlights()
     -- Highlight the second and remaining keys in a sequence
     set_hl(0, 'HopNextKey2', { fg = '#2b8db3', ctermfg = 33, default = true })
 
-    -- Highlight the unmatched part of the buffer
+    -- Highlight the matched string between start from MatchResult.b to MatchResult.e
+    set_hl(0, 'HopMatched', { fg = '#b8bb26', ctermfg = 142, default = true })
+
+    -- Highlight the unmatched part of the buffer (i.e. highlight the background)
     set_hl(0, 'HopUnmatched', { fg = '#666666', sp = '#666666', ctermfg = 242, default = true })
 end
 

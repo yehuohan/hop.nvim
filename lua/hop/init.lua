@@ -77,18 +77,22 @@ function M.setup(opts)
 
     -- stylua: ignore start
     api.nvim_create_user_command('HopChar', function() M.char({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopCharCL', function() M.char({ current_line_only = true }) end, {})
-    api.nvim_create_user_command('HopCharCW', function() M.char({ current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopCharCL', function() M.char({ current_line_only = true, current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopCharCW', function() M.char({ current_line_only = false, current_window_only = true }) end, {})
+
     api.nvim_create_user_command('HopWord', function() M.word({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopWordCL', function() M.word({ current_line_only = true }) end, {})
-    api.nvim_create_user_command('HopWordCW', function() M.word({ current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopWordCL', function() M.word({ current_line_only = true, current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopWordCW', function() M.word({ current_line_only = false, current_window_only = true }) end, {})
+
     api.nvim_create_user_command('HopAnywhere', function() M.anywhere({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopAnywhereCL', function() M.anywhere({ current_line_only = true }) end, {})
-    api.nvim_create_user_command('HopAnywhereCW', function() M.anywhere({ current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopAnywhereCL', function() M.anywhere({ current_line_only = true, current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopAnywhereCW', function() M.anywhere({ current_line_only = false, current_window_only = true }) end, {})
+
     api.nvim_create_user_command('HopLineStart', function() M.line_start({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopLineStartCW', function() M.line_start({ current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopLineStartCW', function() M.line_start({ current_line_only = false, current_window_only = true }) end, {})
+
     api.nvim_create_user_command('HopVertical', function() M.vertical({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopVerticalCW', function() M.vertical({ current_window_only = true }) end, {})
+    api.nvim_create_user_command('HopVerticalCW', function() M.vertical({ current_line_only = false, current_window_only = true }) end, {})
     -- stylua: ignore end
 end
 
