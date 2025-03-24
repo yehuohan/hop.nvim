@@ -36,31 +36,38 @@ end
 ---@param opts Options
 function M.move_multicursor(jump_target, opts)
     local mc = require('multicursor-nvim')
-    local jt = jump_target
-    local jt_cur = jt.cursor
+    if not mc.cursorsEnabled() then
+        M.move_cursor(jump_target, opts)
+    else
+        local jt_cur = jump_target.cursor
+        local dpos = {}
 
-    mc.action(function(ctx)
-        local main_pos = ctx:mainCursor():getPos()
-        local drow = jt_cur.row - main_pos[1]
-        local dcol = jt_cur.col - main_pos[2] + 1
-        local doff = jt_cur.off - main_pos[3]
-        ctx:forEachCursor(function(cur)
-            local pos = cur:getPos()
-            cur:setPos({ pos[1] + drow, pos[2] + dcol, pos[3] + doff })
-            --- Hack: move left and right to update the cursor's highlight
-            cur:feedkeys('hl', { remap = false, keycodes = false })
-        end, { enabledCursors = true, disabledCursors = false })
+        -- Compute cursor distance
+        mc.action(function(ctx)
+            local mpos = ctx:mainCursor():getPos()
+            ctx:forEachCursor(function(cur)
+                local pos = cur:getPos()
+                dpos[#dpos + 1] = { pos[1] - mpos[1], pos[2] - mpos[2], pos[3] - mpos[3] }
+            end, { enabledCursors = true, disabledCursors = false })
+        end)
+
+        M.move_cursor(jump_target, opts)
+
+        -- Add new cursors
+        mc.clearCursors()
+        mc.action(function(ctx)
+            for _, d in ipairs(dpos) do
+                local row = jt_cur.row + d[1]
+                local col = jt_cur.col + d[2] + 1
+                local off = jt_cur.off + d[3]
+                ctx:addCursor():setPos({ row, col, off })
+            end
+        end)
         require('hop').echo(
-            string.format(
-                'Move %d cursors to [%s, %s, %s]',
-                ctx:numEnabledCursors(),
-                jt.cursor.row,
-                jt.cursor.col + 1,
-                jt.cursor.off
-            ),
+            string.format('Move %d cursors to [%s, %s, %s]', #dpos, jt_cur.row, jt_cur.col + 1, jt_cur.off),
             'sel'
         )
-    end)
+    end
 end
 
 return M
