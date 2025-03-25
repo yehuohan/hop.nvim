@@ -11,13 +11,16 @@ local api = vim.api
 ---@field jump Jumper
 ---@field hint_position number Change hint position among the matched string, 0.0 for left and 1.0 for right (MatchResult.b/e)
 ---@field hint_reverse boolean|nil Reverse hint position to make shorter hint lables placed further
+---@field hint_upper boolean|nil Display hint keys in upper
 ---@field hl_matched boolean|nil Highlight the matched string inside [MatchResult.b, MatchResult.e]
 ---@field hl_unmatched boolean|nil Highlight the unmatched part of the buffer (i.e. highlight the background)
 ---@field auto_setup_hl boolean|nil Setup highlights for ColorScheme event
 ---@field auto_jump_one_target boolean|nil Auto jump when there's only one jump target
 ---@field current_line_only boolean|nil Work for current cursor line only
 ---@field current_window_only boolean|nil Work for current window only
----@field exclude_window nil|fun(hwin, hbuf):boolean Exclude window via function
+---@field exclude_line nil|fun(hwin, hbuf, lnum:WindowRow, folded:boolean):boolean Exclude buffer line from hop operations (folded means take an empty string as a folded line)
+---@field exclude_window nil|fun(hwin, hbuf):boolean Exclude window from hop operations
+---@field msg_no_targets string|fun() Show message when there's no jump targets
 
 ---@type Options
 M._default_opts = {
@@ -30,13 +33,16 @@ M._default_opts = {
     jump = require('hop.jumper').move_cursor,
     hint_position = 0.0,
     hint_reverse = false,
+    hint_upper = false,
     hl_matched = false,
     hl_unmatched = true,
     auto_setup_hl = true,
     auto_jump_one_target = true,
     current_line_only = false,
     current_window_only = false,
+    exclude_line = nil,
     exclude_window = nil,
+    msg_no_targets = 'No target was found...',
 }
 
 --- Check options and revise options in-place

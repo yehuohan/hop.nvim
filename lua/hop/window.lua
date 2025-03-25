@@ -206,7 +206,7 @@ function M.get_windows_context(opts)
         local focusable_win = api.nvim_win_get_config(w).focusable
         if valid_win and focusable_win and w ~= cur_hwin then
             local b = api.nvim_win_get_buf(w)
-            if not (type(opts.exclude_window) == 'function' and opts.exclude_window(w, b)) then
+            if not (vim.is_callable(opts.exclude_window) and opts.exclude_window(w, b)) then
                 contexts[#contexts + 1] = window_context(w, b)
             end
         end
@@ -215,10 +215,11 @@ function M.get_windows_context(opts)
     return contexts
 end
 
--- Collect visible and unfold lines of window context
+--- Collect visible and unfold lines of window context
 ---@param win_ctx WindowContext
+---@param opts Options
 ---@return LineContext[]
-function M.get_lines_context(win_ctx)
+function M.get_lines_context(win_ctx, opts)
     ---@type LineContext[]
     local lines = {}
 
@@ -235,14 +236,17 @@ function M.get_lines_context(win_ctx)
             col_bias = 0,
             off_bias = 0,
         }
-        if fold_end == -1 then
-            line_ctx.line = api.nvim_buf_get_lines(win_ctx.hbuf, lnr - 1, lnr, false)[1]
-        else
+        local folded = fold_end ~= -1
+        if folded then
             -- Skip folded lines
             -- Let line = '' to take the first folded line as an empty line, where only the first column can move to
             lnr = fold_end
+        else
+            line_ctx.line = api.nvim_buf_get_lines(win_ctx.hbuf, lnr - 1, lnr, false)[1]
         end
-        lines[#lines + 1] = line_ctx
+        if not (vim.is_callable(opts.exclude_line) and opts.exclude_line(win_ctx.hwin, win_ctx.hbuf, lnr, folded)) then
+            lines[#lines + 1] = line_ctx
+        end
         lnr = lnr + 1
     end
 

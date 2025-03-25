@@ -166,13 +166,14 @@ function H:render_hints(hts)
             goto continue
         end
 
+        local label = self._opts.hint_upper and string.upper(ht.label) or ht.label
         local virt_text
         if ht.index == len then
-            virt_text = { { ht.label:sub(#ht.label), 'HopNextKey' } }
+            virt_text = { { label:sub(#label), 'HopNextKey' } }
         else
             virt_text = {
-                { ht.label:sub(ht.index, ht.index), 'HopNextKey1' },
-                { ht.label:sub(ht.index + 1, ht.index + 1), 'HopNextKey2' },
+                { label:sub(ht.index, ht.index), 'HopNextKey1' },
+                { label:sub(ht.index + 1, ht.index + 1), 'HopNextKey2' },
             }
         end
 
@@ -257,7 +258,7 @@ function H:collect(match)
 
     -- Iterate all window then line contexts
     for _, wctx in ipairs(self.win_ctxs) do
-        local line_ctxs = window.get_lines_context(wctx)
+        local line_ctxs = window.get_lines_context(wctx, self._opts)
         for _, lctx in ipairs(line_ctxs) do
             window.clip_line_context(wctx, lctx, self._opts)
 
@@ -299,7 +300,12 @@ function H:select(jump_targets)
     jump_targets = jump_targets or self.jump_targets
     local jts_cnt = #jump_targets
     if jts_cnt == 0 then
-        require('hop').echo('There’s no such thing we can see...', 'err')
+        if vim.is_callable(self._opts.msg_no_targets) then
+            self._opts.msg_no_targets()
+        elseif type(self._opts.msg_no_targets) == 'string' then
+            ---@diagnostic disable-next-line:param-type-mismatch
+            require('hop').echo(self._opts.msg_no_targets, 'err')
+        end
         return nil
     end
     local jt_idx = nil

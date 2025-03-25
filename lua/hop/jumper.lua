@@ -18,9 +18,12 @@ function M.move_cursor(jump_target, opts)
 
     -- Update the jump list
     -- There is bug with set extmark neovim/neovim#17861
-    api.nvim_set_current_win(jt.window)
-    --local cursor = api.nvim_win_get_cursor(0)
-    --api.nvim_buf_set_mark(jt.buffer, "'", cursor[1], cursor[2], {})
+    if vim.api.nvim_win_is_valid(jt.window) then
+        api.nvim_set_current_win(jt.window)
+    else
+        vim.notify(string.format('The window %d had disappeared', jt.window), vim.log.levels.ERROR)
+    end
+    -- api.nvim_buf_set_mark(jt.buffer, "'", jt.cursor.row, jt.cursor.col + jt.cursor.off, {})
     vim.cmd("normal! m'")
 
     -- Note that nvim_win_set_cursor() only supports virtualedit=all

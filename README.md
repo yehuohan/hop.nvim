@@ -53,7 +53,11 @@ With default configs:
         --- Reverse hint position to make shorter hint lables placed further
         hint_reverse = false,
 
-        --- Highlight the matched string (e.g. highlight the matched word with hop.word)
+        --- Display hint keys in upper
+        hint_upper = false,
+
+        --- Highlight the matched string
+        --- e.g. highlight the matched word with hop.word
         hl_matched = false,
 
         --- Highlight the unmatched part of the buffer (i.e. highlight the background)
@@ -71,9 +75,18 @@ With default configs:
         --- Work for current window only
         current_window_only = false,
 
-        --- Exclude window via function
-        --- fun(hwin, hbuf):boolean
+        --- Exclude buffer line from hop operations (folded means take an empty string as a folded line)
+        --- e.g. when exclude folded line, hop.line_start can't jump to the start of folded line
+        --- nil|fun(hwin, hbuf, lnum:WindowRow, folded:boolean):boolean
+        exclude_line = nil,
+
+        --- Exclude window from hop operations
+        --- nil|fun(hwin, hbuf):boolean
         exclude_window = nil,
+
+        --- Show message when there's no jump targets
+        --- string|func()
+        msg_no_targets = 'No target was found...',
     }
 }
 ```
@@ -131,70 +144,101 @@ end)
 
 - Very very very fast permutation algorithm (see [permutation.lua](./lua/hop/permutation.lua) and [benchmarks.lua](./tests/benchmarks.lua))
 
-- Create/extend hop operations very easily
+- Create/extend hop operations very easily (see [Custom operations](#custom-operations))
 
-*With `require('hop').wrap` for a simple operation:*
+
+# Custom Operations
+
+- Pick & jump to a target window with `require('hop').wrap`
 
 ```lua
-local function hop_char2()
+local function hop_pick_window()
     local hop = require('hop')
-    local matcher = require('hop.matcher')
+    local hop_win = require('hop.window')
 
-    hop.echo('Hop 2 chars:', 'inp')
-    local ok1, c1 = pcall(fn.getcharstr)
-    if not ok1 then
-        return
-    end
-    local ok2, c2 = pcall(fn.getcharstr)
-    if not ok2 then
-        return
-    end
-
-    require('hop').wrap(
+    hop.wrap(
         ---@type require('hop.matcher').Matcher
-        matcher.by_regex(c1 .. c2, true, false),
+        {
+            oneshot = true,
+            match = function(_, wctx, lctx)
+                if hop_win.is_cursor_line(wctx, lctx) then
+                    local jt = wctx.cursor
+                    return { b = jt.col, e = jt.col, off = jt.off, virt = jt.virt }
+                end
+            end,
+        },
         ---@type require('hop.config').Options
         {
+            keys = 'fdsjklaweriop',
+            hint_upper = true,
+            auto_jump_one_target = false,
             ---@type require('hop.jumper').Jumper
             jump = function(jt, opts)
-                vim.api.nvim_set_current_win(jt.window)
-                vim.fn.setpos('.', { jt.buffer, jt.cursor.row, jt.cursor.col + 1, jt.cursor.off })
-                vim.fn.winrestview({ curswant = vim.fn.virtcol('.') - 1 })
+                if vim.api.nvim_win_is_valid(jt.window) then
+                    vim.api.nvim_set_current_win(jt.window)
+                end
             end,
+            msg_no_targets = function() vim.notify('There’s only one window', vim.log.levels.ERROR) end,
         }
     )
 end
 ```
 
-*With `require('hop.hinter')` for a more powerful operation:*
+- Search target pattern dynamically with `require('hop.hinter')`
 
 ```lua
-local function custom()
+local function hop_pattern()
     local hop = require('hop')
-    local matcher = require('hop.matcher')
     local hinter = require('hop.hinter')
+    local matcher = require('hop.matcher')
 
     local opts = hop.get_opts()
+    opts.hl_matched = true -- Highlight matched pattern
+
+    ---@type hinter.Hinter
     local ht = hinter.new(opts) -- Create a hinter
-    ---@type hinter.JumpTarget[]
-    local jts = ht:collect(matcher.word) -- Collect jump targets
+    ht:render_areas()
 
+    local jts
+    local got = ''
+    while true do
+        hop.echo('Hop char:' .. got, 'inp')
+        local ok, c = pcall(vim.fn.getcharstr)
+        if (not ok) or (c == opts.key_quit) then
+            ht:clear_state()
+            return
+        elseif c == vim.api.nvim_replace_termcodes('<CR>', true, false, true) then
+            ht:render_jumps(nil) -- Clear extmarks of jump targets
+            break
+        elseif c == opts.key_delete then
+            got = got:sub(1, #got - 1)
+        else
+            got = got .. c
+        end
+
+        ---@type hinter.JumpTarget[]
+        jts = ht:collect(matcher.chars(got, false, opts.match_mappings)) -- Collect jump targets
+        ht:render_jumps(jts)
+    end
+
+    -----------------------------------------------------------
     -- Perform more processing on all matched jump targets here
+    -----------------------------------------------------------
 
-    ---@type hinter.JumpTarget
+    opts.hl_matched = false -- Disable highlighting matched pattern
+
     local jt = ht:select(jts) -- Select one jump target
     if jt then
-
+        -----------------------------------------------------------
         -- Perform more processing on the selected jump target here
-
+        -----------------------------------------------------------
         opts.jump(jt, opts) -- Jump to selected jump target
     end
 end
 ```
 
 
-
-# Operations
+# Builtin Operations
 
 All operations from `hop = require('hop')` accept `require('hop.config').Options` to override global options,
 and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>HopChar<CR>')`.
