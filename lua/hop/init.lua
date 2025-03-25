@@ -34,7 +34,7 @@ end
 
 --- Wrap hop functionalities
 ---@param match Matcher
----@param opts Options
+---@param opts Options|nil
 function M.wrap(match, opts)
     opts = M.get_opts(opts)
     local ht = hinter.new(opts) -- Create a hinter

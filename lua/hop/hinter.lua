@@ -2,7 +2,7 @@
 ---@alias Collector fun(self, match:Matcher):JumpTarget[]
 
 --- Select one jump target
----@alias Selector fun(self, jump_targets:JumpTarget[]):JumpTarget
+---@alias Selector fun(self, jump_targets:JumpTarget[]|nil):JumpTarget
 
 ---@class Hinter
 --- Privates
@@ -14,7 +14,15 @@
 ---@field ns_view integer View namespace to highlight the matched string
 ---@field ns_area integer Area namespace to highlight unmatched buffer area
 ---@field ns_diag table Diagnostic namespaces
+--- Targets
+---@field jump_targets JumpTarget[] All jump target created from `win_ctxs`
+---@field hint_targets HintTarget[] All hint target created from `jump_targets`
 --- Methods
+---@field setup_state fun(self)
+---@field clear_state fun(self)
+---@field render_areas fun(self)
+---@field render_jumps fun(self, jts:JumpTarget[]|nil)
+---@field render_hints fun(self, hts:HintTarget[]|nil)
 ---@field collect Collector
 ---@field select Selector
 
@@ -26,7 +34,7 @@
 ---@field length number Jump target column length
 ---@field priority number The priority of jump target close to cursor
 
---- Hint jump targets to select
+--- Hint targets to select corresponding jump target
 ---@class HintTarget
 ---@field label string A label string to hint jump target
 ---@field index integer The label start index (1-based)
@@ -36,11 +44,12 @@ local fn = vim.fn
 local api = vim.api
 local window = require('hop.window')
 
---- Hinter methods
+---@type Hinter
 local H = {}
 H.__index = H
 
-function H:_setup_state()
+--- Setup window contexts, highlights, ...
+function H:setup_state()
     self.win_ctxs = window.get_windows_context(self._opts)
     self.buf_list = {}
     local buf_sets = {}
@@ -70,7 +79,8 @@ function H:_setup_state()
     self.ns_diag = vim.diagnostic.get_namespaces()
 end
 
-function H:_clear_state()
+--- Clear highlights, ...
+function H:clear_state()
     for _, buf in ipairs(self.buf_list) do
         if api.nvim_buf_is_valid(buf) then
             api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
@@ -85,10 +95,16 @@ function H:_clear_state()
 end
 
 --- Render unmatched areas
-function H:_render_areas()
+function H:render_areas()
+    for _, buf in ipairs(self.buf_list) do
+        if api.nvim_buf_is_valid(buf) then
+            api.nvim_buf_clear_namespace(buf, self.ns_area, 0, -1)
+        end
+    end
     if not self._opts.hl_unmatched then
         return
     end
+
     for _, wctx in ipairs(self.win_ctxs) do
         -- Set the highlight of unmatched lines of the buffer.
         local start_line, end_line = window.line_range2extmark(wctx.line_range)
@@ -107,19 +123,20 @@ function H:_render_areas()
     end
 end
 
---- Render hint targets
----@param hint_targets HintTarget[]
-function H:_render_hints(hint_targets)
+--- Render jump targets
+---@param jts JumpTarget[]|nil If nil, will clear extmarks only
+function H:render_jumps(jts)
     for _, buf in ipairs(self.buf_list) do
         if api.nvim_buf_is_valid(buf) then
-            api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
             api.nvim_buf_clear_namespace(buf, self.ns_view, 0, -1)
         end
     end
+    if (not self._opts.hl_matched) or not jts then
+        return
+    end
 
-    for _, ht in pairs(hint_targets) do
-        local jt = ht.jump_target
-        if self._opts.hl_matched and jt.length > 1 then
+    for _, jt in ipairs(jts) do
+        if jt.length >= 1 then
             local row, col = window.pos2extmark(jt.cursor)
             api.nvim_buf_set_extmark(jt.buffer, self.ns_view, row, col, {
                 end_row = row,
@@ -128,7 +145,22 @@ function H:_render_hints(hint_targets)
                 priority = 65534,
             })
         end
+    end
+end
 
+--- Render hint targets
+---@param hts HintTarget[]|nil If nil, will clear extmarks only
+function H:render_hints(hts)
+    for _, buf in ipairs(self.buf_list) do
+        if api.nvim_buf_is_valid(buf) then
+            api.nvim_buf_clear_namespace(buf, self.ns_hint, 0, -1)
+        end
+    end
+    if not hts then
+        return
+    end
+
+    for _, ht in ipairs(hts) do
         local len = #ht.label
         if ht.index > len then
             goto continue
@@ -219,11 +251,9 @@ end
 
 --- Collect jump targets
 ---@param match Matcher
----@return JumpTarget[]
+---@return JumpTarget[] self.jump_targets
 function H:collect(match)
-    self:_setup_state()
-
-    local jump_targets = {}
+    self.jump_targets = {}
 
     -- Iterate all window then line contexts
     for _, wctx in ipairs(self.win_ctxs) do
@@ -232,7 +262,7 @@ function H:collect(match)
             window.clip_line_context(wctx, lctx, self._opts)
 
             local line_jts = self:_create_jump_targets(wctx, lctx, match)
-            vim.list_extend(jump_targets, line_jts)
+            vim.list_extend(self.jump_targets, line_jts)
         end
     end
 
@@ -245,27 +275,28 @@ function H:collect(match)
             return a.priority > b.priority
         end
     end
-    table.sort(jump_targets, comp)
+    table.sort(self.jump_targets, comp)
 
-    return jump_targets
+    return self.jump_targets
 end
 
 --- Create hint targets for jump targets
----@param jump_targets JumpTarget[]
+---@param jts JumpTarget[]
 ---@return HintTarget[]
-function H:_create_hint_targets(jump_targets)
-    local hint_targets = {}
-    local perms = self._opts.permute(self._opts.keys, #jump_targets)
-    for k, jt in ipairs(jump_targets) do
-        hint_targets[k] = { label = perms[k], index = 1, jump_target = jt }
+function H:_create_hint_targets(jts)
+    local hts = {}
+    local perms = self._opts.permute(self._opts.keys, #jts)
+    for k, jt in ipairs(jts) do
+        hts[k] = { label = perms[k], index = 1, jump_target = jt }
     end
-    return hint_targets
+    return hts
 end
 
 --- Select one jump target
----@param jump_targets JumpTarget[]
+---@param jump_targets JumpTarget[]|nil If nil, will selcet from self.jump_targets
 ---@return JumpTarget|nil
 function H:select(jump_targets)
+    jump_targets = jump_targets or self.jump_targets
     local jts_cnt = #jump_targets
     if jts_cnt == 0 then
         require('hop').echo('There’s no such thing we can see...', 'err')
@@ -282,9 +313,9 @@ function H:select(jump_targets)
     end
 
     -- Create hint targets
-    local hint_targets = self:_create_hint_targets(jump_targets)
+    self.hint_targets = self:_create_hint_targets(jump_targets)
 
-    return self:_on_input(hint_targets)
+    return self:_on_input(jump_targets, self.hint_targets)
 end
 
 --- Refine hint targets in-place
@@ -294,7 +325,7 @@ end
 function H:_refine_hints(hts, str)
     local cnt = 0
     local len = #str
-    for _, ht in pairs(hts) do
+    for _, ht in ipairs(hts) do
         if ht.label == str then
             -- Return jump target directly when label is full matched
             return ht, cnt
@@ -311,42 +342,44 @@ function H:_refine_hints(hts, str)
 end
 
 --- Wait a selected jump target via hint targets
----@param hint_targets HintTarget[]
+---@param jts JumpTarget[]
+---@param hts HintTarget[]
 ---@return JumpTarget|nil
-function H:_on_input(hint_targets)
-    self:_render_areas()
+function H:_on_input(jts, hts)
+    self:render_areas()
 
     local got = ''
     while true do
-        self:_render_hints(hint_targets)
+        self:render_jumps(jts)
+        self:render_hints(hts)
         require('hop').echo('Select:' .. got, 'sel')
 
         local ok, key = pcall(fn.getcharstr)
         -- Handle operation keys
         if (not ok) or (key == self._opts.key_quit) then
-            self:_clear_state()
+            self:clear_state()
             return
         elseif key == self._opts.key_delete then
             got = got:sub(1, #got - 1)
-            self:_refine_hints(hint_targets, got)
+            self:_refine_hints(hts, got)
             goto continue
         end
 
         -- Handle target keys
         if key and self._opts.keys:find(key, 1, true) then
             got = got .. key
-            local ht, cnt = self:_refine_hints(hint_targets, got)
+            local ht, cnt = self:_refine_hints(hts, got)
             if ht then
-                self:_clear_state()
+                self:clear_state()
                 return ht.jump_target
             elseif cnt == 0 then
                 got = got:sub(1, #got - 1)
-                self:_refine_hints(hint_targets, got)
+                self:_refine_hints(hts, got)
                 vim.notify('No remaining sequence starts with ' .. key, vim.log.levels.ERROR)
             end
         else
             -- Pass through to nvim to be handled normally
-            self:_clear_state()
+            self:clear_state()
             api.nvim_feedkeys(key, '', true)
             return
         end
@@ -364,9 +397,9 @@ local M = {}
 ---@param opts Options
 ---@return Hinter
 function M.new(opts)
-    return setmetatable({
-        _opts = opts,
-    }, H)
+    local ht = setmetatable({ _opts = opts }, H)
+    ht:setup_state()
+    return ht
 end
 
 -- Manhattan distance between cursors

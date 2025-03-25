@@ -53,7 +53,7 @@ With default configs:
         --- Reverse hint position to make shorter hint lables placed further
         hint_reverse = false,
 
-        --- Highlight the matched string (e.g. hilight the matched word with hop.word)
+        --- Highlight the matched string (e.g. highlight the matched word with hop.word)
         hl_matched = false,
 
         --- Highlight the unmatched part of the buffer (i.e. highlight the background)
@@ -65,7 +65,7 @@ With default configs:
         --- Auto jump when there's only one jump target
         auto_jump_one_target = true,
 
-        --- Work for current line only (current_window_only will be set true forcely)
+        --- Work for current cursor line only
         current_line_only = false,
 
         --- Work for current window only
@@ -129,6 +129,8 @@ end)
 <img alt="Match Mappings" src="README/match_mappings.gif"  width=80% height=80% />
 </div>
 
+- Very very very fast permutation algorithm (see [permutation.lua](./lua/hop/permutation.lua) and [benchmarks.lua](./tests/benchmarks.lua))
+
 - Create/extend hop operations very easily
 
 *With `require('hop').wrap` for a simple operation:*
@@ -190,7 +192,6 @@ local function custom()
 end
 ```
 
-- Very very very fast permutation algorithm (see [permutation.lua](./lua/hop/permutation.lua) and [benchmarks.lua](./tests/benchmarks.lua))
 
 
 # Operations
@@ -216,5 +217,5 @@ and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>Ho
 - `HopNextKey`: Highlight the mono-sequence keys (i.e. sequence of 1)
 - `HopNextKey1`: Highlight the first key in a sequence
 - `HopNextKey2`: Highlight the second and remaining keys in a sequence
-- `HopMatched`: Highlight the matched string (e.g. hilight the matched word with hop.word)
+- `HopMatched`: Highlight the matched string (e.g. highlight the matched word with hop.word)
 - `HopUnmatched`: Highlight the unmatched part of the buffer (i.e. highlight the background)

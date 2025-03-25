@@ -15,7 +15,7 @@ local api = vim.api
 ---@field hl_unmatched boolean|nil Highlight the unmatched part of the buffer (i.e. highlight the background)
 ---@field auto_setup_hl boolean|nil Setup highlights for ColorScheme event
 ---@field auto_jump_one_target boolean|nil Auto jump when there's only one jump target
----@field current_line_only boolean|nil Work for current line only (current_window_only will be set true forcely)
+---@field current_line_only boolean|nil Work for current cursor line only
 ---@field current_window_only boolean|nil Work for current window only
 ---@field exclude_window nil|fun(hwin, hbuf):boolean Exclude window via function
 
@@ -51,9 +51,6 @@ function M.check_opts(opts)
     end
     if opts.key_delete then
         opts.key_delete = api.nvim_replace_termcodes(opts.key_delete, true, false, true)
-    end
-    if opts.current_line_only then
-        opts.current_window_only = true
     end
     return opts
 end
