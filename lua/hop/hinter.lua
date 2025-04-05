@@ -32,7 +32,7 @@
 ---@field buffer number
 ---@field cursor Cursor The hint for jump target will place at the Cursor.virt cell when it not nil
 ---@field length number Jump target column length
----@field priority number The priority of jump target close to cursor
+---@field distance number The distance between target to cursor
 
 --- Hint targets to select corresponding jump target
 ---@class HintTarget
@@ -43,6 +43,13 @@
 local fn = vim.fn
 local api = vim.api
 local window = require('hop.window')
+
+---@enum RenderPriority
+local RenderPriority = {
+    AREA = 65510, -- The unmatched area
+    JUMP = 65520, -- The match string for jump target
+    HINT = 65530, -- The hint keys
+}
 
 ---@type Hinter
 local H = {}
@@ -114,7 +121,7 @@ function H:render_areas()
             end_col = end_col,
             hl_group = 'HopUnmatched',
             hl_eol = true,
-            priority = 65533,
+            priority = RenderPriority.AREA,
         })
         -- Hide diagnostics
         for ns in pairs(self.ns_diag) do
@@ -142,7 +149,7 @@ function H:render_jumps(jts)
                 end_row = row,
                 end_col = col + jt.length,
                 hl_group = 'HopMatched',
-                priority = 65534,
+                priority = RenderPriority.JUMP,
             })
         end
     end
@@ -183,7 +190,7 @@ function H:render_hints(hts)
             virt_text_pos = 'overlay',
             virt_text_win_col = ht.jump_target.cursor.virt,
             hl_mode = 'combine',
-            priority = 65535,
+            priority = RenderPriority.HINT,
         })
 
         ::continue::
@@ -234,9 +241,9 @@ function H:_create_jump_targets(wctx, lctx, match)
                 cursor = { row = lctx.row, col = col, off = res.off or 0, virt = res.virt },
                 length = math.max(0, matched_length),
             }
-            -- Compute priority
+            -- Compute distance
             local win_bias = math.abs(current_hwin - wctx.hwin) * 1000
-            line_jt.priority = self._opts.distance(wctx.cursor, line_jt.cursor) + win_bias
+            line_jt.distance = self._opts.distance(wctx.cursor, line_jt.cursor) + win_bias
             line_jts[#line_jts + 1] = line_jt
         end
 
@@ -269,11 +276,11 @@ function H:collect(match)
 
     -- Sort jump targets
     local comp = function(a, b)
-        return a.priority < b.priority
+        return a.distance < b.distance
     end
     if self._opts.hint_reverse then
         comp = function(a, b)
-            return a.priority > b.priority
+            return a.distance > b.distance
         end
     end
     table.sort(self.jump_targets, comp)
@@ -394,7 +401,9 @@ function H:_on_input(jts, hts)
     end
 end
 
-local M = {}
+local M = {
+    RenderPriority = RenderPriority,
+}
 
 --- Compute distance between cursors
 ---@alias Distancer fun(a:Cursor, b:Cursor):number
