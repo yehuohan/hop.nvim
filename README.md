@@ -258,8 +258,12 @@ and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>Ho
 
 # Highlights
 
-- `HopNextKey`: Highlight the mono-sequence hint keys (i.e. sequence of 1)
-- `HopNextKey1`: Highlight the first hint key in a sequence
-- `HopNextKey2`: Highlight the second and remaining hint keys in a sequence
+- `HopNextKey`: Highlight the mono-sequence keys (i.e. sequence of 1)
+- `HopNextKey1`: Highlight the first key in a sequence
+- `HopNextKey2`: Highlight the second and remaining keys in a sequence
 - `HopMatched`: Highlight the matched string (e.g. highlight the matched word with hop.word)
 - `HopUnmatched`: Highlight the unmatched part of the buffer (i.e. highlight the background)
+
+# Thanks
+
+Thanks [phaazon/hop.nvim](https://github.com/phaazon/hop.nvim) and [smoka7/hop.nvim](https://github.com/smoka7/hop.nvim)
