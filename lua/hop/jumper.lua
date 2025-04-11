@@ -19,7 +19,7 @@ function M.move_cursor(jump_target, opts)
     api.nvim_set_current_win(jt.window)
 
     -- If it is pending for operator shift cursor.col to the right by 1
-    if fn.mode() == 'no' then
+    if fn.mode(1) == 'no' then
         jt.cursor.col = jt.cursor.col + 1
     end
 
