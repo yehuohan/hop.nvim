@@ -31,8 +31,9 @@ With default configs:
         --- The char to delete one inputed char and re-select hint lable for jump targets
         key_delete = '<Bs>',
 
-        --- Extend match capabilities (For matcher._checkout_mappings and matcher.chars)
-        --- Currently supported: { "zh", "zh_sc", "zh_tc", "fa" }
+        --- Extend match capabilities (For matcher.checkout_mappings and matcher.chars)
+        --- Currently supported: { "noshift", "zh", "zh_sc", "zh_tc", "fa" }
+        --- e.g. "noshift" can jump to '@' by typing '2', jump to '#' by typing '3', and so on
         match_mappings = {},
 
         --- Compute distance between cursors
@@ -132,7 +133,7 @@ end)
 <img alt="MultiCursor" src="README/multicursor.gif"  width=80% height=80% />
 </div>
 
-- Support jump to any type characters (e.g. 中文字符) via `opts.match_mappings`
+- Support jump to any type characters (e.g. 中文字符) via `opts.match_mappings` and `HopChar`
 
 ```lua
 { match_mappings = { 'zh', 'zh_sc' } }
