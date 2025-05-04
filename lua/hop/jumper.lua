@@ -12,15 +12,20 @@ local api = vim.api
 function M.move_cursor(jump_target, opts)
     local jt = jump_target
 
-    if not vim.api.nvim_win_is_valid(jt.window) then
+    if not api.nvim_win_is_valid(jt.window) then
         vim.notify(string.format('The window %d had disappeared', jt.window), vim.log.levels.ERROR)
         return false
     end
     api.nvim_set_current_win(jt.window)
 
-    -- If it is pending for operator shift cursor.col to the right by 1
+    -- Keep consistent motion operator behavior with neovim
     if fn.mode(1) == 'no' then
-        jt.cursor.col = jt.cursor.col + 1
+        local wincur = api.nvim_win_get_cursor(0)
+        local row = wincur[1]
+        local col = wincur[2]
+        if jt.cursor.row > row or jt.cursor.col > col then
+            jt.cursor.col = jt.cursor.col + 1
+        end
     end
 
     -- Update the jump list

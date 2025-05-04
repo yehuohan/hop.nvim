@@ -88,9 +88,7 @@ function M.setup(opts)
     if M._default_opts.auto_setup_hl then
         api.nvim_create_autocmd('ColorScheme', {
             group = api.nvim_create_augroup('Hop.SetupHighlights', { clear = true }),
-            callback = function()
-                M.setup_highlights()
-            end,
+            callback = M.setup_highlights,
         })
     end
 end

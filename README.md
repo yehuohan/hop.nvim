@@ -15,9 +15,10 @@ A fork & rewrite of [hop.nvim](https://github.com/phaazon/hop.nvim).
 
 # Setup
 
-With default configs:
+Install with e.g. lazy.nvim:
 
 ```lua
+-- default configs
 {
     'yehuohan/hop.nvim',
     ---@type require('hop.config').Options
