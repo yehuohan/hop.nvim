@@ -21,7 +21,7 @@ Install with e.g. lazy.nvim:
 -- default configs
 {
     'yehuohan/hop.nvim',
-    ---@type require('hop.config').Options
+    --- @see require('hop.config').Options
     opts = {
         --- Chars to generate hint lable for jump targets
         keys = 'asdghklqwertyuiopzxcvbnmfj',
@@ -38,6 +38,7 @@ Install with e.g. lazy.nvim:
         match_mappings = {},
 
         --- Compute distance between cursors
+        --- @see require('hop.window').Cursor
         --- fun(a:Cursor, b:Cursor):number
         distance = require('hop.hinter').manhattan,
 
@@ -46,10 +47,14 @@ Install with e.g. lazy.nvim:
         permute = require('hop.permutation').permute,
 
         --- Operation on the jump target
+        --- @see require('hop.config').Options
+        --- @see require('hop.hinter').JumpTarget
         --- fun(jump_target:JumpTarget, opts:Options)
         jump = require('hop.jumper').move_cursor,
 
         --- Hint direction, nil means hint all directions
+        --- @see require('hop.config').HintDirection
+        --- Support: HintDirection.BEFORE_CURSOR, HintDirection.AFTER_CURSOR
         hint_direction = nil,
 
         --- Change hint position among the matched string, 0.0 for left and 1.0 for right
@@ -82,6 +87,7 @@ Install with e.g. lazy.nvim:
 
         --- Exclude buffer line from hop operations (folded means take an empty string as a folded line)
         --- e.g. when exclude folded line, hop.line_start can't jump to the start of folded line
+        --- @see require('hop.window').WindowRow
         --- nil|fun(hwin, hbuf, lnum:WindowRow, folded:boolean):boolean
         exclude_line = nil,
 
@@ -90,7 +96,7 @@ Install with e.g. lazy.nvim:
         exclude_window = nil,
 
         --- Show message when there's no jump targets
-        --- string|func()
+        --- string|func():string
         msg_no_targets = 'No target was found...',
     }
 }
@@ -162,7 +168,7 @@ local function hop_pick_window()
     local hop_win = require('hop.window')
 
     hop.wrap(
-        ---@type require('hop.matcher').Matcher
+        ---@see require('hop.matcher').Matcher
         {
             oneshot = true,
             match = function(_, wctx, lctx)
@@ -172,12 +178,12 @@ local function hop_pick_window()
                 end
             end,
         },
-        ---@type require('hop.config').Options
+        ---@see require('hop.config').Options
         {
             keys = 'fdsjklaweriop',
             hint_upper = true,
             auto_jump_one_target = false,
-            ---@type require('hop.jumper').Jumper
+            ---@see require('hop.jumper').Jumper
             jump = function(jt, opts)
                 if vim.api.nvim_win_is_valid(jt.window) then
                     vim.api.nvim_set_current_win(jt.window)
@@ -200,7 +206,7 @@ local function hop_pattern()
     local opts = hop.get_opts()
     opts.hl_matched = true -- Highlight matched pattern
 
-    ---@type hinter.Hinter
+    ---@see hinter.Hinter
     local ht = hinter.new(opts) -- Create a hinter
     ht:render_areas()
 
@@ -221,7 +227,7 @@ local function hop_pattern()
             got = got .. c
         end
 
-        ---@type hinter.JumpTarget[]
+        ---@see hinter.JumpTarget[]
         jts = ht:collect(matcher.chars(got, false, opts.match_mappings)) -- Collect jump targets
         ht:render_jumps(jts)
     end
