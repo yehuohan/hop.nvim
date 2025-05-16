@@ -49,6 +49,9 @@ Install with e.g. lazy.nvim:
         --- fun(jump_target:JumpTarget, opts:Options)
         jump = require('hop.jumper').move_cursor,
 
+        --- Hint direction, nil means hint all directions
+        hint_direction = nil,
+
         --- Change hint position among the matched string, 0.0 for left and 1.0 for right
         hint_position = 0.0,
 
@@ -251,11 +254,13 @@ and support motion and operator command, e.g. `vim.keymap.set('o', 's', '<Cmd>Ho
 - `:HopLineStart`, `hop.line_start(opts)`: Jump to any line start with whitespace characters skipped
 - `:HopVertical`, `hop.vertical(opts)`: Jump the any line with cursor column
 
-> `:Hop<xxx>` means `{ current_line_only = false, current_window_only = false }`
->
-> `:Hop<xxx>CL` means `{ current_line_only = true, current_window_only = true }`
->
-> `:Hop<xxx>CW` means `{ current_line_only = false, current_window_only = true }`
+> * `:Hop<xxx>` means `{ hint_direction = nil, current_line_only = false, current_window_only = false }`
+> * `:Hop<xxx>CL` means `{ hint_direction = nil, current_line_only = true, current_window_only = true }`
+> * `:Hop<xxx>CW` means `{ hint_direction = nil, current_line_only = false, current_window_only = true }`
+> * `:Hop<xxx>AC` means `{ hint_direction = AFTER_CURSOR, current_line_only = false, current_window_only = true }`
+> * `:Hop<xxx>ACCL` means `{ hint_direction = AFTER_CURSOR, current_line_only = true, current_window_only = true }`
+> * `:Hop<xxx>BC` means `{ hint_direction = BEFORE_CURSOR, current_line_only = false, current_window_only = true }`
+> * `:Hop<xxx>BCCL` means `{ hint_direction = BEFORE_CURSOR, current_line_only = true, current_window_only = true }`
 
 
 # Highlights

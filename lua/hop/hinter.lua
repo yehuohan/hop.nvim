@@ -44,13 +44,6 @@ local fn = vim.fn
 local api = vim.api
 local window = require('hop.window')
 
----@enum RenderPriority
-local RenderPriority = {
-    AREA = 65510, -- The unmatched area
-    JUMP = 65520, -- The match string for jump target
-    HINT = 65530, -- The hint keys
-}
-
 ---@type Hinter
 local H = {}
 H.__index = H
@@ -114,14 +107,14 @@ function H:render_areas()
 
     for _, wctx in ipairs(self.win_ctxs) do
         -- Set the highlight of unmatched lines of the buffer.
-        local start_line, end_line = window.line_range2extmark(wctx.line_range)
-        local start_col, end_col = window.column_range2extmark(wctx.column_range)
+        local start_line, start_col = window.pos2extmark(wctx.win_range.top_left)
+        local end_line, end_col = window.pos2extmark(wctx.win_range.bot_right)
         api.nvim_buf_set_extmark(wctx.hbuf, self.ns_area, start_line, start_col, {
             end_line = end_line,
             end_col = end_col,
             hl_group = 'HopUnmatched',
             hl_eol = true,
-            priority = RenderPriority.AREA,
+            priority = require('hop.config').RenderPriority.AREA,
         })
         -- Hide diagnostics
         for ns in pairs(self.ns_diag) do
@@ -149,7 +142,7 @@ function H:render_jumps(jts)
                 end_row = row,
                 end_col = col + jt.length,
                 hl_group = 'HopMatched',
-                priority = RenderPriority.JUMP,
+                priority = require('hop.config').RenderPriority.JUMP,
             })
         end
     end
@@ -190,7 +183,7 @@ function H:render_hints(hts)
             virt_text_pos = 'overlay',
             virt_text_win_col = ht.jump_target.cursor.virt,
             hl_mode = 'combine',
-            priority = RenderPriority.HINT,
+            priority = require('hop.config').RenderPriority.HINT,
         })
 
         ::continue::
@@ -401,9 +394,7 @@ function H:_on_input(jts, hts)
     end
 end
 
-local M = {
-    RenderPriority = RenderPriority,
-}
+local M = {}
 
 --- Compute distance between cursors
 ---@alias Distancer fun(a:Cursor, b:Cursor):number

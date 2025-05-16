@@ -25,15 +25,17 @@
 ---@field off WindowCell Jump to blank cell when 'virtualedit' is enabled
 ---@field virt WindowCell|nil The cursor cell column displayed relative to the WindowContext.win_offset
 
----@alias LineRange WindowRow[] Line range with [top-inclusive, bottom-inclusive]
----@alias ColumnRange WindowCol[] Column range with [left-inclusive, right-exclusive)
-
 ---@class LineContext
 ---@field row WindowRow
 ---@field line string
 ---@field line_cliped string
 ---@field col_bias WindowCol Bias column of the left clipped line
 ---@field off_bias WindowCell Bias cell column of the left clipped blank cells for 'virtualedit' is enabled
+
+--- Mark window range with Cursor.row and Cursor.col only
+---@class WindowRange
+---@field top_left Cursor Inclusive
+---@field bot_right Cursor Exclusive
 
 --- The Cursor and LineContext under WindowContext:
 --- ```
@@ -58,8 +60,7 @@
 ---@field hwin integer
 ---@field hbuf integer
 ---@field cursor Cursor
----@field line_range LineRange
----@field column_range ColumnRange Left-column for top-line and right-column for bottom-line
+---@field win_range WindowRange Window range for context area
 ---@field win_width WindowCell Window cell width excluding fold, sign and number columns
 ---@field win_offset WindowCell First cell column displayed at window (also is the cell number hidden to window left)
 ---@field virtualedit boolean The 'virtualedit' is enabled or not
@@ -84,18 +85,6 @@ end
 ---@param pos Cursor
 function M.pos2extmark(pos)
     return pos.row - 1, pos.col
-end
-
---- Convert LineRange to start and end row for extmark
----@param range LineRange
-function M.line_range2extmark(range)
-    return range[1] - 1, range[2] - 1
-end
-
---- Convert ColumnRange to start and end column for extmark
----@param range ColumnRange
-function M.column_range2extmark(range)
-    return range[1], range[2]
 end
 
 --- Get the character index at the window column
@@ -175,8 +164,10 @@ local function window_context(hwin, hbuf)
         hwin = hwin,
         hbuf = hbuf,
         cursor = cursor,
-        line_range = { win_info.topline, win_info.botline },
-        column_range = { 0, right_column },
+        win_range = {
+            top_left = { row = win_info.topline, col = 0 },
+            bot_right = { row = win_info.botline, col = right_column },
+        },
         win_width = win_width,
         win_offset = win_view.leftcol,
         virtualedit = is_virtualedit_enabled(hwin),
@@ -223,8 +214,8 @@ function M.get_lines_context(win_ctx, opts)
     ---@type LineContext[]
     local lines = {}
 
-    local lnr = win_ctx.line_range[1]
-    while lnr <= win_ctx.line_range[2] do
+    local lnr = win_ctx.win_range.top_left.row
+    while lnr <= win_ctx.win_range.bot_right.row do
         local fold_end = api.nvim_win_call(win_ctx.hwin, function()
             return fn.foldclosedend(lnr)
         end)
@@ -278,10 +269,27 @@ function M.clip_window_context(win_ctx, opts)
         local row = win_ctx.cursor.row
         local line = api.nvim_buf_get_lines(win_ctx.hbuf, row - 1, row, false)[1]
 
-        win_ctx.line_range[1] = row
-        win_ctx.line_range[2] = row
-        win_ctx.column_range[1] = 0
-        win_ctx.column_range[2] = string.len(line)
+        win_ctx.win_range.top_left = { row = row, col = 0, off = 0 }
+        win_ctx.win_range.bot_right = { row = row, col = string.len(line), off = 0 }
+    end
+
+    local row = win_ctx.cursor.row
+    local line = api.nvim_buf_get_lines(win_ctx.hbuf, row - 1, row, false)[1]
+    local line_len = string.len(line)
+
+    if opts.current_line_only then
+        win_ctx.win_range.top_left = { row = row, col = 0, off = 0 }
+        win_ctx.win_range.bot_right = { row = row, col = line_len, off = 0 }
+    end
+    if opts.hint_direction == require('hop.config').HintDirection.BEFORE_CURSOR then
+        if win_ctx.cursor.col + 1 <= line_len then
+            -- For non-empty lines we have to increase it so we include the cursor
+            win_ctx.win_range.bot_right = { row = row, col = win_ctx.cursor.col + 1, off = 0 }
+        else
+            win_ctx.win_range.bot_right = win_ctx.cursor
+        end
+    elseif opts.hint_direction == require('hop.config').HintDirection.AFTER_CURSOR then
+        win_ctx.win_range.top_left = win_ctx.cursor
     end
 end
 
@@ -305,6 +313,15 @@ function M.clip_line_context(win_ctx, line_ctx, opts)
     local line_cliped = fn.strcharpart(line_ctx.line, left_idx, right_idx - left_idx)
     ---@type WindowCol
     local col_bias = fn.byteidx(line_ctx.line, left_idx)
+
+    if line_ctx.row == win_ctx.cursor.row then
+        if opts.hint_direction == require('hop.config').HintDirection.AFTER_CURSOR then
+            line_cliped = line_cliped:sub(1 + win_ctx.cursor.col - col_bias)
+            col_bias = win_ctx.cursor.col
+        elseif opts.hint_direction == require('hop.config').HintDirection.BEFORE_CURSOR then
+            line_cliped = line_cliped:sub(1, 1 + win_ctx.cursor.col - col_bias)
+        end
+    end
 
     ---@type WindowCell
     local off_bias = 0

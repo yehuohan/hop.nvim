@@ -75,25 +75,46 @@ function M.setup(opts)
     opts = opts or {}
     config.setup(opts)
 
-    -- stylua: ignore start
-    api.nvim_create_user_command('HopChar', function() M.char({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopCharCL', function() M.char({ current_line_only = true, current_window_only = true }) end, {})
-    api.nvim_create_user_command('HopCharCW', function() M.char({ current_line_only = false, current_window_only = true }) end, {})
+    local hd = config.HintDirection
+    local all = { hint_direction = nil, current_line_only = false, current_window_only = false }
+    local cl = { hint_direction = nil, current_line_only = true, current_window_only = true }
+    local cw = { hint_direction = nil, current_line_only = false, current_window_only = true }
+    local ac = { hint_direction = hd.AFTER_CURSOR, current_line_only = false, current_window_only = true }
+    local accl = { hint_direction = hd.AFTER_CURSOR, current_line_only = true, current_window_only = true }
+    local bc = { hint_direction = hd.BEFORE_CURSOR, current_line_only = false, current_window_only = true }
+    local bccl = { hint_direction = hd.BEFORE_CURSOR, current_line_only = true, current_window_only = true }
 
-    api.nvim_create_user_command('HopWord', function() M.word({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopWordCL', function() M.word({ current_line_only = true, current_window_only = true }) end, {})
-    api.nvim_create_user_command('HopWordCW', function() M.word({ current_line_only = false, current_window_only = true }) end, {})
+    for _, item in ipairs({
+        { 'HopChar', M.char },
+        { 'HopWord', M.word },
+        { 'HopAnywhere', M.anywhere },
+    }) do
+        local name = item[1]
+        local func = item[2]
+        -- stylua: ignore start
+        api.nvim_create_user_command(name, function() func(all) end, {})
+        api.nvim_create_user_command(name .. 'CL', function() func(cl) end, {})
+        api.nvim_create_user_command(name .. 'CW', function() func(cw) end, {})
+        api.nvim_create_user_command(name .. 'AC', function() func(ac) end, {})
+        api.nvim_create_user_command(name .. 'ACCL', function() func(accl) end, {})
+        api.nvim_create_user_command(name .. 'BC', function() func(bc) end, {})
+        api.nvim_create_user_command(name .. 'BCCL', function() func(bccl) end, {})
+        -- stylua: ignore end
+    end
 
-    api.nvim_create_user_command('HopAnywhere', function() M.anywhere({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopAnywhereCL', function() M.anywhere({ current_line_only = true, current_window_only = true }) end, {})
-    api.nvim_create_user_command('HopAnywhereCW', function() M.anywhere({ current_line_only = false, current_window_only = true }) end, {})
-
-    api.nvim_create_user_command('HopLineStart', function() M.line_start({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopLineStartCW', function() M.line_start({ current_line_only = false, current_window_only = true }) end, {})
-
-    api.nvim_create_user_command('HopVertical', function() M.vertical({ current_line_only = false, current_window_only = false }) end, {})
-    api.nvim_create_user_command('HopVerticalCW', function() M.vertical({ current_line_only = false, current_window_only = true }) end, {})
-    -- stylua: ignore end
+    for _, item in ipairs({
+        { 'HopLineStart', M.line_start },
+        { 'HopVertical', M.vertical },
+    }) do
+        local name = item[1]
+        local func = item[2]
+        -- stylua: ignore start
+        api.nvim_create_user_command(name, function() func(all) end, {})
+        api.nvim_create_user_command(name .. 'CW', function() func(cw) end, {})
+        api.nvim_create_user_command(name .. 'AC', function() func(ac) end, {})
+        api.nvim_create_user_command(name .. 'BC', function() func(bc) end, {})
+        -- stylua: ignore end
+    end
 end
 
 return M

@@ -1,6 +1,19 @@
 local M = {}
 local api = vim.api
 
+---@enum HintDirection
+M.HintDirection = {
+    BEFORE_CURSOR = 1,
+    AFTER_CURSOR = 2,
+}
+
+---@enum RenderPriority
+M.RenderPriority = {
+    AREA = 65510, -- The unmatched area
+    JUMP = 65520, -- The match string for jump target
+    HINT = 65530, -- The hint keys
+}
+
 ---@class Options
 ---@field keys string Chars to generate hint lable for jump targets
 ---@field key_quit string The char to quit hop operation
@@ -9,6 +22,7 @@ local api = vim.api
 ---@field distance Distancer
 ---@field permute PermGenerator
 ---@field jump Jumper
+---@field hint_direction HintDirection|nil Hint direction, nil means hint all directions
 ---@field hint_position number Change hint position among the matched string, 0.0 for left and 1.0 for right (MatchResult.b/e)
 ---@field hint_reverse boolean|nil Reverse hint position to make shorter hint lables placed further
 ---@field hint_upper boolean|nil Display hint keys in upper
@@ -31,6 +45,7 @@ M._default_opts = {
     distance = require('hop.hinter').manhattan,
     permute = require('hop.permutation').permute,
     jump = require('hop.jumper').move_cursor,
+    hint_direction = nil,
     hint_position = 0.0,
     hint_reverse = false,
     hint_upper = false,

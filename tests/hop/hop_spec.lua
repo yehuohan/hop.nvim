@@ -11,11 +11,15 @@ describe('hop commands:', function()
         vim.api.nvim_win_set_cursor(0, { 1, 0 })
     end)
 
-    it('HopChar, HopCharCL', function()
+    it('HopChar, HopCharCL, HopCharAC, HopCharBC', function()
         override_keyseq({ 'h', 's' }, vim.cmd.HopChar)
         eq({ 3, 7 }, vim.api.nvim_win_get_cursor(0))
         override_keyseq({ 'h' }, vim.cmd.HopCharCL) -- config.auto_jump_one_target
         eq({ 3, 34 }, vim.api.nvim_win_get_cursor(0))
+        override_keyseq({ 'o', 'd' }, vim.cmd.HopCharBC)
+        eq({ 1, 14 }, vim.api.nvim_win_get_cursor(0))
+        override_keyseq({ 'h', 's' }, vim.cmd.HopCharAC)
+        eq({ 3, 7 }, vim.api.nvim_win_get_cursor(0))
     end)
 
     it('HopWord, HopWordCL', function()
