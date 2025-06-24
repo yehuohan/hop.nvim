@@ -24,7 +24,7 @@ end
 ---@param opts Options|nil
 ---@return Options
 function M.get_opts(opts)
-    opts = config.check_opts(opts or {})
+    opts = config.check_opts(opts and vim.deepcopy(opts, true) or {})
     local mode = fn.mode(1)
     if mode ~= 'n' and mode ~= 'nt' then
         opts.current_window_only = true
