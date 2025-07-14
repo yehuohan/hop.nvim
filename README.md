@@ -112,7 +112,7 @@ Install with e.g. lazy.nvim:
 ```
 
 <div align="center">
-<img alt="Delete" src="README/delete.gif"  width=80% height=80% />
+<img alt="Delete" src="README/delete.gif" style="width:80%; height:auto;" />
 </div>
 
 - Support `virtualedit`
@@ -122,7 +122,7 @@ vim.wo[0].virtualedit = 'all'
 ```
 
 <div align="center">
-<img alt="Virtualedit" src="README/virtualedit.gif"  width=80% height=80% />
+<img alt="Virtualedit" src="README/virtualedit.gif" style="width:80%; height:auto;" />
 </div>
 
 - Support [multicursor.nvim](https://github.com/jake-stewart/multicursor.nvim)
@@ -140,7 +140,7 @@ end)
 ```
 
 <div align="center">
-<img alt="MultiCursor" src="README/multicursor.gif"  width=80% height=80% />
+<img alt="MultiCursor" src="README/multicursor.gif" style="width:80%; height:auto;" />
 </div>
 
 - Support jump to any type characters (e.g. 中文字符) via `opts.match_mappings` and `HopChar`
@@ -150,7 +150,7 @@ end)
 ```
 
 <div align="center">
-<img alt="Match Mappings" src="README/match_mappings.gif"  width=80% height=80% />
+<img alt="Match Mappings" src="README/match_mappings.gif" style="width:80%; height:auto;" />
 </div>
 
 - Very very very fast permutation algorithm (see [permutation.lua](./lua/hop/permutation.lua) and [benchmarks.lua](./tests/benchmarks.lua))
