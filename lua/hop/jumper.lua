@@ -13,7 +13,7 @@ function M.move_cursor(jump_target, opts)
     local jt = jump_target
 
     if not api.nvim_win_is_valid(jt.window) then
-        vim.notify(string.format('The window %d had disappeared', jt.window), vim.log.levels.ERROR)
+        opts.echo(string.format('The window %d had disappeared', jt.window), vim.log.levels.ERROR)
         return false
     end
     api.nvim_set_current_win(jt.window)
@@ -23,7 +23,7 @@ function M.move_cursor(jump_target, opts)
         local wincur = api.nvim_win_get_cursor(0)
         local row = wincur[1]
         local col = wincur[2]
-        if jt.cursor.row > row or jt.cursor.col > col then
+        if jt.cursor.row > row or (jt.cursor.row == row and jt.cursor.col > col) then
             jt.cursor.col = jt.cursor.col + 1
         end
     end
@@ -38,7 +38,11 @@ function M.move_cursor(jump_target, opts)
     --api.nvim_win_set_cursor(jt.window, { jt.cursor.row, jt.cursor.col + jt.cursor.off })
     fn.setpos('.', { jt.buffer, jt.cursor.row, jt.cursor.col + 1, jt.cursor.off })
     fn.winrestview({ curswant = fn.virtcol('.') - 1 })
-    require('hop').echo(string.format('Jump to [%s, %s, %s]', jt.cursor.row, jt.cursor.col + 1, jt.cursor.off), 'sel')
+    opts.echo(
+        string.format('Jump to [%s, %s, %s]', jt.cursor.row, jt.cursor.col + 1, jt.cursor.off),
+        vim.log.levels.INFO,
+        { is_cmd_msg = true }
+    )
 
     return true
 end
@@ -78,9 +82,10 @@ function M.move_multicursor(jump_target, opts)
                 ctx:addCursor():setPos({ row, col, off })
             end
         end)
-        require('hop').echo(
+        opts.echo(
             string.format('Move %d cursors to [%s, %s, %s]', #dpos, jt_cur.row, jt_cur.col + 1, jt_cur.off),
-            'sel'
+            vim.log.levels.INFO,
+            { is_cmd_msg = true }
         )
     end
 

@@ -14,6 +14,36 @@ M.RenderPriority = {
     HINT = 65530, -- The hint keys
 }
 
+--- Echo levels for M.echo
+M.EchoLevels = {
+    [vim.log.levels.TRACE] = 'Title',
+    [vim.log.levels.DEBUG] = 'Title',
+    [vim.log.levels.INFO] = 'Title',
+    [vim.log.levels.WARN] = 'Question',
+    [vim.log.levels.ERROR] = 'Error',
+}
+
+---@class EchoOptions
+---@field is_cmd_msg boolean Message is recommended to show at cmdline (wait for `getcharstr()` mainly)
+
+--- Echo message
+---@param msg string|fun()
+---@param level vim.log.levels
+---@param opts nil|EchoOptions
+function M.echo(msg, level, opts)
+    if vim.is_callable(msg) then
+        return msg()
+    end
+    if opts and opts.is_cmd_msg then
+        if M.EchoLevels[level] then
+            api.nvim_echo({ { msg, M.EchoLevels[level] } }, false, {})
+            vim.cmd.redraw()
+        end
+    else
+        vim.notify(msg, level, opts)
+    end
+end
+
 ---@class Options
 ---@field keys string Chars to generate hint lable for jump targets
 ---@field key_quit string The char to quit hop operation
@@ -34,6 +64,7 @@ M.RenderPriority = {
 ---@field current_window_only boolean|nil Work for current window only
 ---@field exclude_line nil|fun(hwin, hbuf, lnum:WindowRow, folded:boolean):boolean Exclude buffer line from hop operations (folded means take an empty string as a folded line)
 ---@field exclude_window nil|fun(hwin, hbuf):boolean Exclude window from hop operations
+---@field echo fun(msg:string|fun(), level:vim.log.levels, opts:nil|EchoOptions) Message handler
 ---@field msg_no_targets string|fun() Show message when there's no jump targets
 
 ---@type Options
@@ -57,6 +88,7 @@ M._default_opts = {
     current_window_only = false,
     exclude_line = nil,
     exclude_window = nil,
+    echo = M.echo,
     msg_no_targets = 'No target was found...',
 }
 

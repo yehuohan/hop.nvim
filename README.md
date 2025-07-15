@@ -34,7 +34,11 @@ Install with e.g. lazy.nvim:
 
         --- Extend match capabilities (For matcher.checkout_mappings and matcher.chars)
         --- Currently supported: { "noshift", "zh", "zh_sc", "zh_tc", "fa" }
-        --- e.g. "noshift" can jump to '@' by typing '2', jump to '#' by typing '3', and so on
+        --- * "noshift": can jump to '@' by typing '2', jump to '#' by typing '3', and so on
+        --- * "zh": 中文符号
+        --- * "zh_sc": 简体中文（拼音首字母）
+        --- * "zh_tc": 繁体中文（拼音首字母）
+        --- * "fa": (I'm not sure which language. It's from https://github.com/smoka7/hop.nvim)
         match_mappings = {},
 
         --- Compute distance between cursors
@@ -95,8 +99,13 @@ Install with e.g. lazy.nvim:
         --- nil|fun(hwin, hbuf):boolean
         exclude_window = nil,
 
+        --- Message handler
+        --- @see require('hop.config').EchoOptions
+        --- fun(msg:string|fun(), level:vim.log.levels, opts:nil|EchoOptions)
+        echo = require('hop.config').echo
+
         --- Show message when there's no jump targets
-        --- string|func():string
+        --- string|fun()
         msg_no_targets = 'No target was found...',
     }
 }
@@ -213,7 +222,7 @@ local function hop_pattern()
     local jts
     local got = ''
     while true do
-        hop.echo('Hop char:' .. got, 'inp')
+        opts.echo('Hop char:' .. got, vim.log.levels.WARN, { is_cmd_msg = true})
         local ok, c = pcall(vim.fn.getcharstr)
         if (not ok) or (c == opts.key_quit) then
             ht:clear_state()

@@ -5,21 +5,6 @@ local config = require('hop.config')
 local matcher = require('hop.matcher')
 local hinter = require('hop.hinter')
 
---- Echo levels for M.echo
-local echo_levels = {
-    inp = 'Question',
-    sel = 'Title',
-    err = 'Error',
-}
-
---- Echo message at cmdline
----@param msg string
----@param level string Level or highlight
-function M.echo(msg, level)
-    vim.cmd.redraw()
-    api.nvim_echo({ { msg, echo_levels[level] or level } }, false, {})
-end
-
 -- Allows to overide options
 ---@param opts Options|nil
 ---@return Options
@@ -46,7 +31,7 @@ function M.wrap(match, opts)
 end
 
 function M.char(opts)
-    M.echo('Hop char:', 'inp')
+    (opts and opts.echo or config._default_opts.echo)('Hop char:', vim.log.levels.WARN, { is_cmd_msg = true })
     local ok, c = pcall(fn.getcharstr)
     if not ok then -- Interrupted by <C-c>
         return

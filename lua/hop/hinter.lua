@@ -92,6 +92,7 @@ function H:clear_state()
             end
         end
     end
+    vim.cmd.redraw()
 end
 
 --- Render unmatched areas
@@ -102,6 +103,7 @@ function H:render_areas()
         end
     end
     if not self._opts.hl_unmatched then
+        vim.cmd.redraw()
         return
     end
 
@@ -121,6 +123,7 @@ function H:render_areas()
             vim.diagnostic.show(ns, wctx.hbuf, nil, { virtual_text = false })
         end
     end
+    vim.cmd.redraw()
 end
 
 --- Render jump targets
@@ -132,6 +135,7 @@ function H:render_jumps(jts)
         end
     end
     if (not self._opts.hl_matched) or not jts then
+        vim.cmd.redraw()
         return
     end
 
@@ -146,6 +150,7 @@ function H:render_jumps(jts)
             })
         end
     end
+    vim.cmd.redraw()
 end
 
 --- Render hint targets
@@ -157,6 +162,7 @@ function H:render_hints(hts)
         end
     end
     if not hts then
+        vim.cmd.redraw()
         return
     end
 
@@ -188,6 +194,7 @@ function H:render_hints(hts)
 
         ::continue::
     end
+    vim.cmd.redraw()
 end
 
 --- Create jump targets within one line
@@ -300,12 +307,7 @@ function H:select(jump_targets)
     jump_targets = jump_targets or self.jump_targets
     local jts_cnt = #jump_targets
     if jts_cnt == 0 then
-        if vim.is_callable(self._opts.msg_no_targets) then
-            self._opts.msg_no_targets()
-        elseif type(self._opts.msg_no_targets) == 'string' then
-            ---@diagnostic disable-next-line:param-type-mismatch
-            require('hop').echo(self._opts.msg_no_targets, 'err')
-        end
+        self._opts.echo(self._opts.msg_no_targets, vim.log.levels.ERROR, { is_cmd_msg = true })
         return nil
     end
     local jt_idx = nil
@@ -358,7 +360,7 @@ function H:_on_input(jts, hts)
     while true do
         self:render_jumps(jts)
         self:render_hints(hts)
-        require('hop').echo('Select:' .. got, 'sel')
+        self._opts.echo('Select:' .. got, vim.log.levels.INFO, { is_cmd_msg = true })
 
         local ok, key = pcall(fn.getcharstr)
         -- Handle operation keys
@@ -381,7 +383,7 @@ function H:_on_input(jts, hts)
             elseif cnt == 0 then
                 got = got:sub(1, #got - 1)
                 self:_refine_hints(hts, got)
-                vim.notify('No remaining sequence starts with ' .. key, vim.log.levels.ERROR)
+                self._opts.echo('No remaining sequence starts with ' .. key, vim.log.levels.ERROR)
             end
         else
             -- Pass through to nvim to be handled normally
